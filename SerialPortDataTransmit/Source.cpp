@@ -1,5 +1,6 @@
 ﻿#include <windows.h>
 #include <iostream>
+#include <ctime>
 using namespace std;
 
 HWND hWndg;
@@ -9,6 +10,7 @@ class Comport
 private:
 	wstring scomport = L"COM0";
 	HANDLE hSerial;
+	DCB dcbSerialParams = { 0 };
 
 	
 public:
@@ -41,20 +43,14 @@ public:
 			MessageBox(hWndg, L"some other error occurred. Inform user.", L"Caption", MB_OK);
 		}
 
-		DCB dcbSerialParams = { 0 };
-		dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
-		if (!GetCommState(hSerial, &dcbSerialParams)) {
-			//error getting state
-			MessageBox(hWndg, L"error getting state", L"Caption", MB_OK);
-		}
+		GetSerialParams();
+		
 		dcbSerialParams.BaudRate = CBR_19200;
 		dcbSerialParams.ByteSize = 8;
 		dcbSerialParams.StopBits = ONESTOPBIT;
 		dcbSerialParams.Parity = NOPARITY;
-		if (!SetCommState(hSerial, &dcbSerialParams)) {
-			//error setting serial port state
-			MessageBox(hWndg, L"error setting serial port state", L"Caption", MB_OK);
-		}
+		
+		SetSerialParams()
 
 		COMMTIMEOUTS timeouts = { 0 };
 		timeouts.ReadIntervalTimeout = 50;
@@ -62,6 +58,18 @@ public:
 		timeouts.ReadTotalTimeoutMultiplier = 10;
 		timeouts.WriteTotalTimeoutConstant = 50;
 		timeouts.WriteTotalTimeoutMultiplier = 10;
+		
+	}
+	void GetSerialParams()
+	{
+		dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
+		if (!GetCommState(hSerial, &dcbSerialParams)) {
+			//error getting state
+			MessageBox(hWndg, L"error getting state", L"Caption", MB_OK);
+		}
+	}
+	void SetSerialParams()
+	{
 		if (!SetCommTimeouts(hSerial, &timeouts)) {
 			//error occureed. Inform user
 			MessageBox(hWndg, L"error occureed. Inform user", L"Caption", MB_OK);
@@ -72,9 +80,28 @@ public:
 		CloseHandle(hSerial);
 		hSerial = NULL;
 	}
-	wstring read()
+	void read(wstring &szBuf)
 	{
-
+		bool a = true;
+		DWORD dwBytesWritten;
+		
+		dwBytesWritten = 0;
+		time_t t = std::time(0);   // get time now
+   		tm* now = std::localtime(&t);
+    		memset(szBuf,0,sizeof(szBuf));
+    		while (a == true || dwBytesWritten > 0)
+		{
+			ReadFile( hPort,szBuf,sizeof(szBuf),&dwBytesRead, NULL);
+			if (dwBytesWritten == 0)
+			{
+				time_t t1 = std::time(0);   // get time now
+   				tm* after = std::localtime(&t);
+				if (difftime(now,after) > 120)
+					a = false;
+			}
+			else
+				a = false;
+		}
 	}
 	bool writetoconnect(wstring data)
 	{
@@ -91,20 +118,44 @@ class registration
 private:
 	int id;
 	Comport *Read, *Write;
+	bool success;
 public:
 	registration(bool major, int comtowrite, int comtoread)
 	{
+		wstring szBuf[100];
 		if (major == true)
 		{
 			id = 1;
 			Write = new Comport(comtowrite);
 			Read = new Comport(comtoread);
-			Write->writetoconnect(L"c1");
-			Read->read();
+			if (Write->writetoconnect(L"c1") = false)
+				MessageBox(hWndg, L"Проверьте запущены ли приложения на остальных компьютерах", L"Caption", MB_OK);
+			else
+			{
+				Read->read(&szBuff);
+				if ( szBuf[0] = 'C' && szBuff[1] == "2")
+					success = true;
+				else
+					success = false;
+			}
 		}
 		else
 		{
-
+			Write = new Comport(comtowrite);
+			Read = new Comport(comtoread);
+			Read->read(&szBuff);
+			if (szBuf[0] = 'C' && (szbBuf[1] == '1' || (szbBuf[1] == '2')
+			{
+				int num = (int)szbBuf[1] - (int)'0'
+				num += 1;
+				id = num;
+				szBuf[1] = '0' + id;
+				if (Write->writetoconnect(szBuf) = false)
+					MessageBox(hWndg, L"Проверьте запущены ли приложения на остальных компьютерах", L"Caption", MB_OK);
+				else
+					success = true;
+			}
+				
 		}
 	}
 };
