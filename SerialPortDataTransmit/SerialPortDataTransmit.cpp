@@ -10,6 +10,11 @@
 HINSTANCE hInst;                                // текущий экземпляр
 WCHAR szTitle[MAX_LOADSTRING];                  // Текст строки заголовка
 WCHAR szWindowClass[MAX_LOADSTRING];            // имя класса главного окна
+HWND textbox1;
+HWND textbox2;
+HWND button;
+HWND button2;
+HWND button3;
 
 // Отправить объявления функций, включенных в этот модуль кода:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -99,12 +104,68 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
       CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
+   textbox1 = CreateWindow(_T("EDIT"),
+	   _T(""),
+	   WS_BORDER | WS_CHILD | WS_VISIBLE,
+	   0,
+	   25,
+	   120,
+	   25,
+	   hWnd,
+	   NULL,
+	   NULL,
+	   NULL
+   );
+   textbox2 = CreateWindow(_T("EDIT"),
+	   _T(""),
+	   WS_BORDER | WS_CHILD | WS_VISIBLE,
+	   0,
+	   50,
+	   120,
+	   25,
+	   hWnd,
+	   NULL,
+	   NULL,
+	   NULL
+   );
+   button = CreateWindow(_T("BUTTON"),
+	   _T("Подключить"),
+	   WS_CHILD | WS_VISIBLE | WS_BORDER,
+	   120,
+	   25,
+	   120,
+	   33,
+	   hWnd,
+	   (HMENU)1,
+	   NULL,
+	   NULL);
+   button2 = CreateWindow(_T("BUTTON"),
+	   _T("тест отправить"),
+	   WS_CHILD | WS_VISIBLE | WS_BORDER,
+	   120,
+	   50,
+	   120,
+	   33,
+	   hWnd,
+	   (HMENU)2,
+	   NULL,
+	   NULL);
+   button3 = CreateWindow(_T("BUTTON"),
+	   _T("тест считка"),
+	   WS_CHILD | WS_VISIBLE | WS_BORDER,
+	   120,
+	   80,
+	   120,
+	   33,
+	   hWnd,
+	   (HMENU)3,
+	   NULL,
+	   NULL);
 
    if (!hWnd)
    {
       return FALSE;
    }
-   WorkWithCom(hWnd);
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
 
@@ -126,20 +187,39 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     switch (message)
     {
     case WM_COMMAND:
-        {
-            int wmId = LOWORD(wParam);
-            // Разобрать выбор в меню:
-            switch (wmId)
-            {
-            case IDM_ABOUT:
-                DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
-                break;
-            case IDM_EXIT:
-                DestroyWindow(hWnd);
-                break;
-            default:
-                return DefWindowProc(hWnd, message, wParam, lParam);
-            }
+		{
+			switch (HIWORD(wParam))
+			{
+			}
+			switch (LOWORD(wParam))
+			{
+				case 1:
+				{
+					TCHAR text1[30];
+					TCHAR text2[30];
+					int com1;
+					int com2;
+
+					GetWindowText(textbox1, text1, GetWindowTextLength(textbox1) + 1);
+					GetWindowText(textbox2, text2, GetWindowTextLength(textbox1) + 1);
+					MessageBox(hWnd,text1, L"Caption", MB_OK);
+					MessageBox(hWnd, text2, L"Caption", MB_OK);
+					com1 = _wtoi(text1);
+					com2 = _wtoi(text2);
+					WorkWithCom(hWnd, com1, com2);
+					break;
+				}
+				case 2:
+				{
+					trytowrrite();
+					break;
+				}
+				case 3:
+				{
+					trytoread();
+					break;
+				}
+			}
         }
         break;
     case WM_PAINT:

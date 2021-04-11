@@ -1,9 +1,28 @@
 ﻿#include <windows.h>
 #include <iostream>
 #include <ctime>
+#include <locale>
+#include <codecvt>
+#include <string>
 using namespace std;
 
 HWND hWndg;
+
+int StringToWString(std::wstring& ws, const std::string& s)
+{
+	std::wstring wsTmp(s.begin(), s.end());
+
+	ws = wsTmp;
+
+	return 0;
+}
+
+wchar_t* convertCharArrayToLPCWSTR(const char* charArray)
+{
+	wchar_t* wString = new wchar_t[4096];
+	MultiByteToWideChar(CP_ACP, 0, charArray, -1, wString, 4096);
+	return wString;
+}
 
 class Comport
 {
@@ -20,14 +39,11 @@ public:
 		scomport[3] += numport;
 	}
 	
-	wstring  returner()
-	{
-		return scomport;
-	}
+	wstring  returner() { return scomport;}
 
-	HANDLE open()
+	void open()
 	{
-		hSerial = CreateFile(L"COM1",
+		hSerial = CreateFile(scomport.c_str(),
 			GENERIC_READ | GENERIC_WRITE,
 			0,
 			0,
@@ -49,8 +65,8 @@ public:
 		dcbSerialParams.ByteSize = 8;
 		dcbSerialParams.StopBits = ONESTOPBIT;
 		dcbSerialParams.Parity = NOPARITY;
-		
-		SetSerialParams()
+
+		SetSerialParams();
 
 		COMMTIMEOUTS timeouts = { 0 };
 		timeouts.ReadIntervalTimeout = 50;
@@ -58,7 +74,10 @@ public:
 		timeouts.ReadTotalTimeoutMultiplier = 10;
 		timeouts.WriteTotalTimeoutConstant = 50;
 		timeouts.WriteTotalTimeoutMultiplier = 10;
-		
+		if (!SetCommTimeouts(hSerial, &timeouts)) {
+			//error occureed. Inform user
+			MessageBox(hWndg, L"error occureed. Inform user", L"Caption", MB_OK);
+		}
 	}
 	void GetSerialParams()
 	{
@@ -70,45 +89,44 @@ public:
 	}
 	void SetSerialParams()
 	{
-		if (!SetCommTimeouts(hSerial, &timeouts)) {
-			//error occureed. Inform user
-			MessageBox(hWndg, L"error occureed. Inform user", L"Caption", MB_OK);
+		if (!SetCommState(hSerial, &dcbSerialParams)) {
+			//error setting serial port state
+			MessageBox(hWndg, L"error setting serial port state", L"Caption", MB_OK);
 		}
+		
 	}
 	void close()
 	{
 		CloseHandle(hSerial);
 		hSerial = NULL;
 	}
-	void read(wstring &szBuf)
+	void read()
 	{
-		bool a = true;
 		DWORD dwBytesWritten;
+		char szBuf[100];
 		
 		dwBytesWritten = 0;
-		time_t t = std::time(0);   // get time now
-   		tm* now = std::localtime(&t);
-    		memset(szBuf,0,sizeof(szBuf));
-    		while (a == true || dwBytesWritten > 0)
-		{
-			ReadFile( hPort,szBuf,sizeof(szBuf),&dwBytesRead, NULL);
-			if (dwBytesWritten == 0)
-			{
-				time_t t1 = std::time(0);   // get time now
-   				tm* after = std::localtime(&t);
-				if (difftime(now,after) > 120)
-					a = false;
-			}
-			else
-				a = false;
-		}
+		ReadFile(hSerial,&szBuf,sizeof(szBuf),&dwBytesWritten, NULL);
+		MessageBox(hWndg, convertCharArrayToLPCWSTR(szBuf), L"Caption", MB_OK);
 	}
-	bool writetoconnect(wstring data)
+	bool writetoconnect()
 	{
-		DWORD dwSize = sizeof(data);   // ðàçìåð ýòîé ñòðîêè
+
+		char a[10];
+		a[0] = 'Z';
+		a[1] = 'n';
+		a[2] = 'd';
+		a[3] = 'r';
+		a[4] = 'e';
+		a[5] = 'y';
+		a[6] = ' ';
+		a[7] = 's';
+		a[8] = 'o';
+		a[9] = 's';
+		DWORD dwSize = sizeof(a);   // ðàçìåð ýòîé ñòðîêè
 		DWORD dwBytesWritten;
-		bool retVal = WriteFile(hWndg, &data, 1, &dwBytesWritten, NULL);
-		CloseHandle(hWndg); //close the handle
+		bool retVal = WriteFile(hSerial, a, 1, &dwBytesWritten, NULL);
+		//CloseHandle(hSerial); //close the handle
 		return retVal;
 	}
 };
@@ -122,51 +140,42 @@ private:
 public:
 	registration(bool major, int comtowrite, int comtoread)
 	{
-		wstring szBuf[100];
-		if (major == true)
-		{
-			id = 1;
-			Write = new Comport(comtowrite);
-			Read = new Comport(comtoread);
-			if (Write->writetoconnect(L"c1") = false)
-				MessageBox(hWndg, L"Проверьте запущены ли приложения на остальных компьютерах", L"Caption", MB_OK);
-			else
-			{
-				Read->read(&szBuff);
-				if ( szBuf[0] = 'C' && szBuff[1] == "2")
-					success = true;
-				else
-					success = false;
-			}
-		}
-		else
-		{
-			Write = new Comport(comtowrite);
-			Read = new Comport(comtoread);
-			Read->read(&szBuff);
-			if (szBuf[0] = 'C' && (szbBuf[1] == '1' || (szbBuf[1] == '2')
-			{
-				int num = (int)szbBuf[1] - (int)'0'
-				num += 1;
-				id = num;
-				szBuf[1] = '0' + id;
-				if (Write->writetoconnect(szBuf) = false)
-					MessageBox(hWndg, L"Проверьте запущены ли приложения на остальных компьютерах", L"Caption", MB_OK);
-				else
-					success = true;
-			}
-				
-		}
+		char szBuf[100];
+		
+		Write = new Comport(comtowrite);
+		Read = new Comport(comtoread);
+		Write->open();
+		Read->open();
+	}
+
+	void test()
+	{
+		if (Write->writetoconnect() == false)
+			MessageBox(hWndg, L"Проверьте запущены ли приложения на остальных компьютерах", L"Caption", MB_OK);
+	}
+	void read()
+	{
+		char ne[100];
+		Read->read();
 	}
 };
 
-void WorkWithCom(HWND hWnd)
+registration *a1;
+
+void WorkWithCom(HWND hWnd, int com1, int com2)
 {
 	hWndg = hWnd;
 	Comport *commer;
 
-	commer = new Comport(3);
-	wstring a = commer->returner();
-	MessageBox(hWnd, a.c_str(), L"Caption", MB_OKCANCEL);
-	
+	a1 = new registration(true, com1, com2);
+}
+
+void trytowrrite()
+{
+	a1->test();
+}
+
+void trytoread()
+{
+	a1->read();
 }
