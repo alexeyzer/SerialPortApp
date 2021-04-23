@@ -3,8 +3,32 @@
 
 #include "framework.h"
 #include "SerialPortDataTransmit.h"
+#include <commdlg.h>
+#include <commctrl.h>
+#include "Logger.h"
+#include "View.h"
+
+#pragma once 
+
+#pragma comment( lib, "comctl32.lib")
+
+#pragma comment( linker, "/manifestdependency:\"type='win32' \
+        name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
+        processorArchitecture='*' publicKeyToken='6595b64144ccf1df' \
+        language='*'\"")
+
+
 
 #define MAX_LOADSTRING 100
+#define M_PI 3.1415926535897932384
+#define OPEN_FILE_SUCCESS 1
+#define OPEN_FILE_FAILURE 2
+#define DEFAULT_BUTTON_HEIGHT 50
+#define DEFAULT_BUTTON_WIDTH 150
+#define READ_ACTION 3
+#define SEND_ACTION 2
+#define ESTABLISH_CONNECTION_ACTION 1
+#define WM_GETLOGGER 0x1337
 
 // Глобальные переменные:
 HINSTANCE hInst;                                // текущий экземпляр
@@ -13,8 +37,44 @@ WCHAR szWindowClass[MAX_LOADSTRING];            // имя класса глав�
 HWND textbox1;
 HWND textbox2;
 HWND button;
-HWND button2;
-HWND button3;
+HWND sendButton;
+HWND readButton;
+
+HWND openFileButton;
+
+
+void openFile(HWND hWnd) {
+	OPENFILENAMEA ofn;
+
+}
+
+
+
+
+
+DWORD WINAPI Thread1(LPVOID t) {  //функция ,выполняемая первым потоком 
+
+	HDC hdc = GetDC((HWND)t);
+	RECT black;
+	black.top = 400;
+	black.bottom = 1000;			//координаты прямоугольника,который закрашивает предыдущее положение фигуры
+	black.left = 0;
+	black.right = 1000;
+	int speed = 1;
+	while (true) {
+		for (double x = M_PI / 2; x < (5 * M_PI) / 2; x += (0.002 * speed)) {
+			HPEN pen = CreatePen(PS_DASH, 2, RGB(120 * (sin(2 * x) + 1), 120 * (cos(4 * x) + 1), 120 * (cos(3 * x) + 1)));						//цвет обводки фигруы меняется в зависимости от x
+			HBRUSH brush = CreateSolidBrush(RGB(120 * (sin(2 * x) + 1), 120 * (cos(4 * x) + 1), 120 * (cos(3 * x) + 1)));
+			SelectObject(hdc, pen);
+			SelectObject(hdc, brush);
+			Ellipse(hdc, 200, 200, 400, 400);
+			Sleep(11);		//задержка 
+			DeleteObject(pen);						//удаление кисти и ручки ,чтобы избежать ошибок (иначе программа вылетает через какое-то время)
+			DeleteObject(brush);
+		}
+	}
+	return 0;
+}
 
 // Отправить объявления функций, включенных в этот модуль кода:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -84,33 +144,24 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.lpszMenuName   = MAKEINTRESOURCEW(IDC_SERIALPORTDATATRANSMIT);
     wcex.lpszClassName  = szWindowClass;
     wcex.hIconSm        = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
-
     return RegisterClassExW(&wcex);
 }
 
-//
-//   ФУНКЦИЯ: InitInstance(HINSTANCE, int)
-//
-//   ЦЕЛЬ: Сохраняет маркер экземпляра и создает главное окно
-//
-//   КОММЕНТАРИИ:
-//
-//        В этой функции маркер экземпляра сохраняется в глобальной переменной, а также
-//        создается и выводится главное окно программы.
-//
+
+
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
    hInst = hInstance; // Сохранить маркер экземпляра в глобальной переменной
 
    HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-      CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
+      CW_USEDEFAULT, 0, 800, 800, nullptr, nullptr, hInstance, nullptr);
    textbox1 = CreateWindow(_T("EDIT"),
 	   _T(""),
 	   WS_BORDER | WS_CHILD | WS_VISIBLE,
 	   0,
-	   25,
-	   120,
-	   25,
+	   50,
+	   DEFAULT_BUTTON_WIDTH,
+	   DEFAULT_BUTTON_HEIGHT,
 	   hWnd,
 	   NULL,
 	   NULL,
@@ -120,9 +171,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	   _T(""),
 	   WS_BORDER | WS_CHILD | WS_VISIBLE,
 	   0,
-	   50,
-	   120,
-	   25,
+	   100,
+	   DEFAULT_BUTTON_WIDTH,
+	   DEFAULT_BUTTON_HEIGHT,
 	   hWnd,
 	   NULL,
 	   NULL,
@@ -132,60 +183,75 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	   _T("Подключить"),
 	   WS_CHILD | WS_VISIBLE | WS_BORDER,
 	   120,
-	   25,
-	   120,
-	   33,
+	   150,
+	   DEFAULT_BUTTON_WIDTH,
+	   DEFAULT_BUTTON_HEIGHT,
 	   hWnd,
-	   (HMENU)1,
+	   (HMENU)ESTABLISH_CONNECTION_ACTION,
 	   NULL,
 	   NULL);
-   button2 = CreateWindow(_T("BUTTON"),
+   sendButton = CreateWindow(_T("BUTTON"),
 	   _T("тест отправить"),
 	   WS_CHILD | WS_VISIBLE | WS_BORDER,
 	   120,
-	   50,
-	   120,
-	   33,
+	   200,
+	   DEFAULT_BUTTON_WIDTH,
+	   DEFAULT_BUTTON_HEIGHT,
 	   hWnd,
-	   (HMENU)2,
+	   (HMENU)SEND_ACTION,
 	   NULL,
 	   NULL);
-   button3 = CreateWindow(_T("BUTTON"),
+   readButton = CreateWindow(_T("BUTTON"),
 	   _T("тест считка"),
 	   WS_CHILD | WS_VISIBLE | WS_BORDER,
 	   120,
-	   80,
-	   120,
-	   33,
+	   250,
+	   DEFAULT_BUTTON_WIDTH,
+	   DEFAULT_BUTTON_HEIGHT,
 	   hWnd,
-	   (HMENU)3,
+	   (HMENU)READ_ACTION,
 	   NULL,
 	   NULL);
-
+   openFileButton = CreateWindow(_T("BUTTON"),
+	   _T("Открытие файла"),
+	   WS_CHILD | WS_VISIBLE | WS_BORDER,
+	   120,
+	   300,
+	   DEFAULT_BUTTON_WIDTH,
+	   DEFAULT_BUTTON_HEIGHT,
+	   hWnd,
+	   (HMENU)4,
+	   NULL,
+	   NULL);
+   
+   
    if (!hWnd)
    {
       return FALSE;
    }
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
-
+   
    return TRUE;
 }
 
-//
-//  ФУНКЦИЯ: WndProc(HWND, UINT, WPARAM, LPARAM)
-//
-//  ЦЕЛЬ: Обрабатывает сообщения в главном окне.
-//
-//  WM_COMMAND  - обработать меню приложения
-//  WM_PAINT    - Отрисовка главного окна
-//  WM_DESTROY  - отправить сообщение о выходе и вернуться
-//
-//
+
+
+Logger logger;
+
+ViewHandler handle;
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
     {
+	case WM_CREATE:
+	{
+		logger=Logger(hWnd, 300, 300);
+		handle = ViewHandler(hWnd,NULL,NULL,NULL);
+	}
+	break;
+
     case WM_COMMAND:
 		{
 			switch (HIWORD(wParam))
@@ -193,7 +259,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			switch (LOWORD(wParam))
 			{
-				case 1:
+				case ESTABLISH_CONNECTION_ACTION:
 				{
 					TCHAR text1[30];
 					TCHAR text2[30];
@@ -202,21 +268,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 					GetWindowText(textbox1, text1, GetWindowTextLength(textbox1) + 1);
 					GetWindowText(textbox2, text2, GetWindowTextLength(textbox1) + 1);
-					MessageBox(hWnd,text1, L"Caption", MB_OK);
-					MessageBox(hWnd, text2, L"Caption", MB_OK);
+					logger.addMessage(text1);
+					logger.addMessage(text2);
 					com1 = _wtoi(text1);
 					com2 = _wtoi(text2);
-					WorkWithCom(hWnd, com1, com2);
+					WorkWithCom(hWnd, com1, com2,logger);
 					break;
 				}
-				case 2:
+				case SEND_ACTION:
 				{
-					trytowrrite();
+					logger.addMessage(L"hello\0");
+					trytowrrite(logger);
 					break;
 				}
-				case 3:
+				case READ_ACTION:
 				{
-					trytoread();
+					trytoread(logger);
 					break;
 				}
 			}
@@ -229,32 +296,42 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             // TODO: Добавьте сюда любой код прорисовки, использующий HDC...
             EndPaint(hWnd, &ps);
         }
-        break;
+		break;
     case WM_DESTROY:
         PostQuitMessage(0);
         break;
-    default:
+	case WM_KEYDOWN:
+	{
+		switch (wParam)
+		{
+			case VK_UP:
+			{
+				handle.changeStatusToError();
+			}
+			break;
+			case VK_DOWN:
+			{
+				handle.changeStatusToSuccess();
+			}
+			break;
+			case VK_LEFT:
+			{
+				handle.changeStatusToWaiting();
+			}
+			break;
+			case VK_RIGHT:
+			{
+				handle.changeStatusToRainbow();
+			}
+			break;
+		}
+		break;
+	}
+
+	default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
 }
 
-// Обработчик сообщений для окна "О программе".
-INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-{
-    UNREFERENCED_PARAMETER(lParam);
-    switch (message)
-    {
-    case WM_INITDIALOG:
-        return (INT_PTR)TRUE;
 
-    case WM_COMMAND:
-        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
-        {
-            EndDialog(hDlg, LOWORD(wParam));
-            return (INT_PTR)TRUE;
-        }
-        break;
-    }
-    return (INT_PTR)FALSE;
-}

@@ -4,9 +4,15 @@
 #include <locale>
 #include <codecvt>
 #include <string>
+#include "Source.h"
+#include "Logger.h"
+
 using namespace std;
 
 HWND hWndg;
+
+
+Logger loggerGlobal;
 
 int StringToWString(std::wstring& ws, const std::string& s)
 {
@@ -31,6 +37,7 @@ private:
 	HANDLE hSerial;
 	DCB dcbSerialParams = { 0 };
 
+
 	
 public:
 	Comport(int numport)
@@ -54,9 +61,11 @@ public:
 		{
 			if (GetLastError() == ERROR_FILE_NOT_FOUND)
 			{
-				MessageBox(hWndg, L"serial port does not exist", L"Caption", MB_OK);
+				// MessageBox(hWndg, L"serial port does not exist", L"Caption", MB_OK);
+				loggerGlobal.addMessage(L"serial port does not exist");
 			}
-			MessageBox(hWndg, L"some other error occurred. Inform user.", L"Caption", MB_OK);
+			loggerGlobal.addMessage(L"some other error occurred. Inform user.");
+			// MessageBox(hWndg, L"some other error occurred. Inform user.", L"Caption", MB_OK);
 		}
 
 		GetSerialParams();
@@ -76,7 +85,8 @@ public:
 		timeouts.WriteTotalTimeoutMultiplier = 10;
 		if (!SetCommTimeouts(hSerial, &timeouts)) {
 			//error occureed. Inform user
-			MessageBox(hWndg, L"error occureed. Inform user", L"Caption", MB_OK);
+			// MessageBox(hWndg, L"error occureed. Inform user", L"Caption", MB_OK);
+			loggerGlobal.addMessage(L"error occureed. Inform user");
 		}
 	}
 	void GetSerialParams()
@@ -84,14 +94,16 @@ public:
 		dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
 		if (!GetCommState(hSerial, &dcbSerialParams)) {
 			//error getting state
-			MessageBox(hWndg, L"error getting state", L"Caption", MB_OK);
+			// MessageBox(hWndg, L"error getting state", L"Caption", MB_OK);
+			loggerGlobal.addMessage(L"error getting state");
 		}
 	}
 	void SetSerialParams()
 	{
 		if (!SetCommState(hSerial, &dcbSerialParams)) {
 			//error setting serial port state
-			MessageBox(hWndg, L"error setting serial port state", L"Caption", MB_OK);
+			// MessageBox(hWndg, L"error setting serial port state", L"Caption", MB_OK);
+			loggerGlobal.addMessage(L"error setting serial port state");
 		}
 		
 	}
@@ -107,7 +119,8 @@ public:
 		
 		dwBytesWritten = 0;
 		ReadFile(hSerial,&szBuf,sizeof(szBuf),&dwBytesWritten, NULL);
-		MessageBox(hWndg, convertCharArrayToLPCWSTR(szBuf), L"Caption", MB_OK);
+		// MessageBox(hWndg, convertCharArrayToLPCWSTR(szBuf), L"Caption", MB_OK);
+		loggerGlobal.addMessage(convertCharArrayToLPCWSTR(szBuf));
 	}
 	bool writetoconnect()
 	{
@@ -125,7 +138,7 @@ public:
 		a[9] = 's';
 		DWORD dwSize = sizeof(a);   // ðàçìåð ýòîé ñòðîêè
 		DWORD dwBytesWritten;
-		bool retVal = WriteFile(hSerial, a, 1, &dwBytesWritten, NULL);
+		bool retVal = WriteFile(hSerial, a, 10, &dwBytesWritten, NULL);
 		//CloseHandle(hSerial); //close the handle
 		return retVal;
 	}
@@ -151,7 +164,10 @@ public:
 	void test()
 	{
 		if (Write->writetoconnect() == false)
+		{
 			MessageBox(hWndg, L"Проверьте запущены ли приложения на остальных компьютерах", L"Caption", MB_OK);
+			loggerGlobal.addMessage(L"Проверьте запущены ли приложения на остальных компьютерах");
+		}
 	}
 	void read()
 	{
@@ -162,20 +178,23 @@ public:
 
 registration *a1;
 
-void WorkWithCom(HWND hWnd, int com1, int com2)
+void WorkWithCom(HWND hWnd, int com1, int com2, Logger givenloggerGlobal)
 {
+	loggerGlobal = givenloggerGlobal;
 	hWndg = hWnd;
 	Comport *commer;
 
 	a1 = new registration(true, com1, com2);
 }
 
-void trytowrrite()
+void trytowrrite(Logger givenloggerGlobal)
 {
+	loggerGlobal = givenloggerGlobal;
 	a1->test();
 }
 
-void trytoread()
+void trytoread(Logger givenloggerGlobal)
 {
+	loggerGlobal = givenloggerGlobal;
 	a1->read();
 }
