@@ -8,6 +8,13 @@ using namespace std;
 
 HWND hWndg;
 
+struct a 
+{
+	char buff[2];
+};
+
+char str1[2];
+
 int StringToWString(std::wstring& ws, const std::string& s)
 {
 	std::wstring wsTmp(s.begin(), s.end());
@@ -17,7 +24,7 @@ int StringToWString(std::wstring& ws, const std::string& s)
 	return 0;
 }
 
-
+void setid(int id);
 
 wchar_t* convertCharArrayToLPCWSTR(const char* charArray)
 {
@@ -63,26 +70,28 @@ public:
 
 		GetSerialParams();
 		
-		dcbSerialParams.BaudRate = CBR_9600;
-		dcbSerialParams.ByteSize = 8;
-		dcbSerialParams.fParity = FALSE;
-		dcbSerialParams.Parity = EVENPARITY;
-		dcbSerialParams.StopBits = ONESTOPBIT;
-		dcbSerialParams.fErrorChar = FALSE;
+		dcbSerialParams.BaudRate = CBR_57600;
+		//dcbSerialParams.fBinary = TRUE;                         // включаем двоичный режим обмена
+		dcbSerialParams.fOutxCtsFlow = FALSE;                   // выключаем режим слежения за сигналом CTS
+		///dcbSerialParams.fOutxDsrFlow = FALSE;                   // выключаем режим слежения за сигналом DSR
+		//dcbSerialParams.fDtrControl = DTR_CONTROL_DISABLE;      // отключаем использование линии DTR
+		dcbSerialParams.fDsrSensitivity = FALSE;                // отключаем восприимчивость драйвера к состоянию линии DSR
+		//dcbSerialParams.fNull = FALSE;//TRUE                    // разрешить приём нулевых байтов
+		//dcbSerialParams.fRtsControl = RTS_CONTROL_DISABLE;      // отключаем использование линии RTS
+		//dcbSerialParams.fAbortOnError = FALSE;                  // отключаем остановку всех операций чтения/записи при ошибке
+		dcbSerialParams.ByteSize = 8;                           // задаём 8 бит в байте
+		dcbSerialParams.Parity = 1;                             // включаем проверку чётности
+		dcbSerialParams.StopBits = 0;                           // задаём один стоп-бит
 		//dcbSerialParams.ErrorChar=255;
-		dcbSerialParams.fNull = FALSE;                     // задаём 8 бит в байте                            // включаем проверку чётности      
-		dcbSerialParams.fDtrControl = DTR_CONTROL_DISABLE;
-		dcbSerialParams.fRtsControl = RTS_CONTROL_DISABLE;
-		// задаём один стоп-бит
+
 
 		SetSerialParams();
-
 		COMMTIMEOUTS timeouts = { 0 };
-		timeouts.ReadIntervalTimeout = MAXDWORD;
+		timeouts.ReadIntervalTimeout = 50;
+		timeouts.ReadTotalTimeoutConstant = 50;
 		timeouts.ReadTotalTimeoutMultiplier = 10;
-		timeouts.ReadTotalTimeoutConstant =100;
-		timeouts.WriteTotalTimeoutMultiplier = 0;
-		timeouts.WriteTotalTimeoutConstant = 0;
+		timeouts.WriteTotalTimeoutConstant = 50;
+		timeouts.WriteTotalTimeoutMultiplier = 10;
 		if (!SetCommTimeouts(hSerial, &timeouts)) {
 			//error occureed. Inform user
 			MessageBox(hWndg, L"error occureed. Inform user", L"Caption", MB_OK);
@@ -115,35 +124,41 @@ public:
 };
 Comport* Read, * Write;
 
+void changestatus();
+
+void setid(int id);
 
 DWORD WINAPI writetoconnect(LPVOID t)
 {
 	DWORD temp, signal;
 	DWORD dwSize = sizeof(t);   // ðàçìåð ýòîé ñòðîêè
 	DWORD dwBytesWritten;
-	MessageBox(hWndg, convertCharArrayToLPCWSTR((const char*)t), L"Caption", MB_OK);      //создать событие
-	HANDLE hserial = Write->reth();
+	//MessageBox(hWndg, convertCharArrayToLPCWSTR((const char*)t), L"Caption", MB_OK);      //создать событие
 	int counter = 0;
+	DWORD temp2 = 0;
 	OVERLAPPED overlapped = { 0 };
-	overlapped.hEvent = CreateEvent(NULL, true, true, NULL);
-	PurgeComm(hserial, PURGE_TXCLEAR | PURGE_RXCLEAR);
+	bool result;
+
+	
+
+	FlushFileBuffers(Write->reth());
+	overlapped.hEvent = CreateEvent(NULL, true, false, NULL);
+	if (!overlapped.hEvent)
+	{
+		MessageBox(hWndg, L"Ошибка", L"Caption", MB_OK);
+	}
 	while (1)
 	{
-		counter++;
-		WriteFile(hserial, "error", 4, &temp, &overlapped);
-		char str1[100];
-		snprintf(str1, 100, "%i", counter);
-		LPCWSTR str = convertCharArrayToLPCWSTR(str1);
-		TextOut(GetDC(hWndg), 300, 300, str,10);
-		delete str;
-		signal = WaitForSingleObject(overlapped.hEvent, 40);    //приостановить поток, пока не завершится перекрываемая операция WriteFile
-		if ((signal == WAIT_OBJECT_0) && (GetOverlappedResult(Write->reth(), &overlapped, &temp, true))) //если операция завершилась успешно
+		result = WriteFile(Write->reth(), str1, 2, &temp, &overlapped);
+		signal = WaitForSingleObject(overlapped.hEvent, INFINITY);    //приостановить поток, пока не завершится перекрываемая операция WriteFile
+		if ((signal == WAIT_OBJECT_0) && (GetOverlappedResult(Write->reth(), &overlapped, &temp2, true))) //если операция завершилась успешно
 		{
-			MessageBox(hWndg, L"Отпрвалено", L"Caption", MB_OK);
-			return (1); //вывести сообщение об этом в строке состояния
-			
+			if (temp2 > 0)
+			{
+				//MessageBox(hWndg, L"Отпрвалено", L"Caption", MB_OK);
+				return (1); //вывести сообщение об этом в строке состояни
+			}
 		}
-		PurgeComm(hserial, PURGE_TXCLEAR | PURGE_RXCLEAR);
 	}
 	//CloseHandle(hSerial); //close the handle
 	return -1;
@@ -151,47 +166,70 @@ DWORD WINAPI writetoconnect(LPVOID t)
 
 DWORD WINAPI readforconnect(LPVOID t)
 {
-	char szBuf[100];
-	OVERLAPPED overlapped = {0};
-	COMSTAT comstat;        // структура текущего состояния порта, в данной программе используется для определения количества принятых в порт байтов
-	DWORD btr, temp, mask, signal;  // переменная temp используется в качестве заглушки
-	int flag;
+	//ShowMessage(s);
+	OVERLAPPED OL = { 0 };
+	DWORD CommEventMask = EV_BREAK | EV_CTS | EV_DSR | EV_ERR | EV_RING |
+		EV_RLSD | EV_RXCHAR | EV_RXFLAG | EV_TXEMPTY;
 
-	flag = 1;
-	overlapped.hEvent = CreateEvent(NULL, true, true, NULL); // создать сигнальный объект-событие для асинхронных операций
-	SetCommMask(Read->reth() , EV_BREAK | EV_CTS | EV_DSR | EV_ERR | EV_RING |
-		EV_RLSD | EV_RXCHAR | EV_RXFLAG | EV_TXEMPTY);                     // установить маску на срабатывание по событию приёма байта в порт
-	while (flag)                       // пока поток не будет прерван, выполняем цикл
+	BOOL retcode = SetCommMask(Read->reth(), CommEventMask);
+	if (!retcode)
+		OL.Offset = 0;
+	OL.OffsetHigh = 0;
+	DWORD EventMask = 0;
+	int cadr = 0;
+	char a[2];
+
+
+
+	do
 	{
-		WaitCommEvent(Read->reth(), &mask, &overlapped);   //ожидать события приёма байта (это и есть перекрываемая операция)
-		signal = WaitForSingleObject(overlapped.hEvent, 40);    //приостановить поток до прихода байта
-		if (signal == WAIT_OBJECT_0)                       //если событие прихода байта произошло
+		retcode = WaitCommEvent(Read->reth(), &EventMask, &OL);
+		if ((!retcode) && (GetLastError() == ERROR_IO_PENDING))
+			WaitForSingleObject(OL.hEvent, INFINITE);
+		if (EventMask & EV_RXCHAR)
 		{
-			MessageBox(hWndg, convertCharArrayToLPCWSTR(szBuf), L"Caption", MB_OK);
-			if (GetOverlappedResult(Read->reth(), &overlapped, &temp, true)) //проверяем, успешно ли завершилась перекрываемая операция WaitCommEvent
-				if ((mask & EV_RXCHAR) != 0)                 //если произошло именно событие прихода байта
+			DWORD ErrorMask = 0;
+			COMSTAT CStat;
+			ClearCommError(Read->reth(), &ErrorMask, &CStat);
+			DWORD quelen = CStat.cbInQue;
+			char* lpInBuffer = (char*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, quelen + 1);
+			if (!lpInBuffer)
+			{
+
+			}
+			//   memset(&lpInBuffer, '\0', (int)quelen);
+			DWORD dwReaded = 0;
+			retcode = ReadFile(Read->reth(), lpInBuffer, quelen, &dwReaded, &OL);
+			if (dwReaded == 0 && GetLastError() == ERROR_IO_PENDING)
+				retcode = GetOverlappedResult(Read->reth(), &OL, &dwReaded, FALSE);
+			else
+				if (dwReaded > 0)
 				{
-					ClearCommError(Read->reth(), &temp, &comstat); // нужно заполнить структуру COMSTAT
-					btr = comstat.cbInQue;                    // и получить из неё количество принятых байтов
-					if (btr)                                   // если действительно есть байты для чтения
+					MessageBox(hWndg, convertCharArrayToLPCWSTR(lpInBuffer), L"Caption", MB_OK);
+					if (lpInBuffer[0] = 'r')
 					{
-						ReadFile(Read->reth(), szBuf, btr, &temp, &overlapped); // прочитать байты из порта в буфер программы
-						MessageBox(hWndg, convertCharArrayToLPCWSTR(szBuf), L"Caption", MB_OK);
-						if (szBuf[0] == 'c')
-						{
-							if (atoi(&szBuf[1]) > 0)
-								return (atoi(&szBuf[1] + 1));
-							else
-								return (-1);
-						}
+						if (lpInBuffer[1] == '2')
+							changestatus();
 						else
-							return (-1);
+						{
+							if (lpInBuffer[1] == '1')
+							{
+								MessageBox(hWndg, L"Got the file", L"Caption", MB_OK);
+								setid(atoi(&lpInBuffer[1]) + 1);
+								str1[1] = '2';
+								CreateThread(NULL, 0, writetoconnect, str1, NULL, NULL);
+							}
+						}
 					}
 				}
-		}
+		} 
+	EventMask = 0;
+	ResetEvent(OL.hEvent);
 	}
-	return (1);
+	while (1);
 }
+
+
 
 
 class registration
@@ -202,34 +240,34 @@ private:
 public:
 	registration(bool major, int comtowrite, int comtoread)
 	{
-		char szBuf[100];
-		int	temp;
-		char a[2];
-		a[0] = 'c';
-		a[1] = '1';
-		
+		struct a now;
+
+		now.buff[0] = 'r';
+		now.buff[1] = '0';
 		Write = new Comport(comtowrite);
 		Read = new Comport(comtoread);
 		Write->open();
 		Read->open();
-		if (major == true)
-		{
-			id = 1;
-			CreateThread(NULL, 0, writetoconnect, LPVOID(a), 0, NULL);
-		}
-		else
-		{
-			CreateThread(NULL, 0, readforconnect, NULL, 0, NULL);
-			//CreateThread(NULL, 0, writetoconnect, LPVOID(a), 0, NULL);
-			MessageBox(hWndg, L"выход Ведомго", L"Caption", MB_OK);
-
-		}
+		CreateThread(NULL, 0, readforconnect, &now, 0, NULL);
 	}
-
-
+	void close()
+	{
+		Write->close();
+		Read->close();
+	}
+	void setid(int a)
+	{
+		id = a;
+	}
 };
 
 registration *a1;
+
+
+void setid(int id)
+{
+	a1->setid(id);
+}
 
 void WorkWithCom(HWND hWnd, int com1, int com2, bool major)
 {
@@ -237,4 +275,27 @@ void WorkWithCom(HWND hWnd, int com1, int com2, bool major)
 	Comport *commer;
 
 	a1 = new registration(major, com1, com2);
+}
+
+bool globalgavno = false;
+
+void changestatus()
+{
+	globalgavno = true;
+	MessageBox(hWndg, L"Успешная регистрация", L"Caption", MB_OK);
+}
+
+
+void write()
+{
+	char a[2];
+
+	str1[0] = 'r';
+	str1[1] = '1';
+	CreateThread(NULL, 0, writetoconnect,NULL , 0, NULL);
+}
+
+void close()
+{
+	a1->close();
 }

@@ -129,7 +129,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	   NULL
    );
    button = CreateWindow(_T("BUTTON"),
-	   _T("Подключить главный"),
+	   _T("Подключить"),
 	   WS_CHILD | WS_VISIBLE | WS_BORDER,
 	   120,
 	   25,
@@ -140,7 +140,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	   NULL,
 	   NULL);
    button2 = CreateWindow(_T("BUTTON"),
-	   _T("Подключить ведомый"),
+	   _T("Регистрация"),
 	   WS_CHILD | WS_VISIBLE | WS_BORDER,
 	   120,
 	   50,
@@ -151,7 +151,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	   NULL,
 	   NULL);
    button3 = CreateWindow(_T("BUTTON"),
-	   _T("тест считка"),
+	   _T("Закрыть порты"),
 	   WS_CHILD | WS_VISIBLE | WS_BORDER,
 	   120,
 	   80,
@@ -211,22 +211,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				}
 				case 2:
 				{
-					TCHAR text1[30];
-					TCHAR text2[30];
-					int com1;
-					int com2;
 
-					GetWindowText(textbox1, text1, GetWindowTextLength(textbox1) + 1);
-					GetWindowText(textbox2, text2, GetWindowTextLength(textbox1) + 1);
-					MessageBox(hWnd, text1, L"Caption", MB_OK);
-					MessageBox(hWnd, text2, L"Caption", MB_OK);
-					com1 = _wtoi(text1);
-					com2 = _wtoi(text2);
-					WorkWithCom(hWnd, com1, com2, false);
+					write();
 					break;
 				}
 				case 3:
 				{
+					close();
 					break;
 				}
 
