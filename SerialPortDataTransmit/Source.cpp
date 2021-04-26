@@ -5,15 +5,20 @@
 #include <codecvt>
 #include <string>
 using namespace std;
+#include <bitset>
+#include <iostream>
 
 HWND hWndg;
+bool globaltimer = false;
 
-struct a 
-{
-	char buff[2];
-};
+bitset<7> a;
 
-char str1[2];
+char* buffer = NULL;
+int bytestosend;
+
+int computerscount = 0;
+
+bool maincomputer = false;
 
 int StringToWString(std::wstring& ws, const std::string& s)
 {
@@ -23,6 +28,9 @@ int StringToWString(std::wstring& ws, const std::string& s)
 
 	return 0;
 }
+
+HANDLE  readthread;
+
 
 void setid(int id);
 
@@ -123,10 +131,68 @@ public:
 	
 };
 Comport* Read, * Write;
+DWORD WINAPI read(LPVOID t);
 
-void changestatus();
 
-void setid(int id);
+
+
+class registration
+{
+private:
+	int id;
+public:
+	registration(bool major, int comtowrite, int comtoread)
+	{
+		Write = new Comport(comtowrite);
+		Read = new Comport(comtoread);
+		Write->open();
+		Read->open();
+		CreateThread(NULL, 0, read, NULL, 0, NULL);
+	}
+	void close()
+	{
+		Write->close();
+		Read->close();
+	}
+	void setid(int a)
+	{
+		char b;
+		id = a;
+	}
+	int getid()
+	{
+		return id;
+	}
+};
+
+registration *a1;
+
+
+void WorkWithCom(HWND hWnd, int com1, int com2, bool major)
+{
+	hWndg = hWnd;
+	Comport *commer;
+
+	a1 = new registration(major, com1, com2);
+}
+
+
+DWORD WINAPI timer(LPVOID t)
+{
+	int counter = 0;
+	while (!globaltimer)
+	{
+		Sleep(1000);
+		counter++;
+		if (counter > 5)
+		{
+			MessageBox(hWndg, L"Провалено", L"Caption", MB_OK);
+			return (-1);
+		}
+	}
+	MessageBox(hWndg,L"Регистрация успешна", L"Caption", MB_OK);
+	return (1);
+}
 
 DWORD WINAPI writetoconnect(LPVOID t)
 {
@@ -134,12 +200,9 @@ DWORD WINAPI writetoconnect(LPVOID t)
 	DWORD dwSize = sizeof(t);   // ðàçìåð ýòîé ñòðîêè
 	DWORD dwBytesWritten;
 	//MessageBox(hWndg, convertCharArrayToLPCWSTR((const char*)t), L"Caption", MB_OK);      //создать событие
-	int counter = 0;
 	DWORD temp2 = 0;
 	OVERLAPPED overlapped = { 0 };
 	bool result;
-
-	
 
 	FlushFileBuffers(Write->reth());
 	overlapped.hEvent = CreateEvent(NULL, true, false, NULL);
@@ -149,12 +212,14 @@ DWORD WINAPI writetoconnect(LPVOID t)
 	}
 	while (1)
 	{
-		result = WriteFile(Write->reth(), str1, 2, &temp, &overlapped);
+		result = WriteFile(Write->reth(), buffer , bytestosend, &temp, &overlapped);
 		signal = WaitForSingleObject(overlapped.hEvent, INFINITY);    //приостановить поток, пока не завершится перекрываемая операция WriteFile
 		if ((signal == WAIT_OBJECT_0) && (GetOverlappedResult(Write->reth(), &overlapped, &temp2, true))) //если операция завершилась успешно
 		{
 			if (temp2 > 0)
 			{
+				free(buffer);
+				buffer = NULL;
 				//MessageBox(hWndg, L"Отпрвалено", L"Caption", MB_OK);
 				return (1); //вывести сообщение об этом в строке состояни
 			}
@@ -164,7 +229,7 @@ DWORD WINAPI writetoconnect(LPVOID t)
 	return -1;
 }
 
-DWORD WINAPI readforconnect(LPVOID t)
+DWORD WINAPI read(LPVOID t)
 {
 	//ShowMessage(s);
 	OVERLAPPED OL = { 0 };
@@ -177,8 +242,6 @@ DWORD WINAPI readforconnect(LPVOID t)
 	OL.OffsetHigh = 0;
 	DWORD EventMask = 0;
 	int cadr = 0;
-	char a[2];
-
 
 
 	do
@@ -205,94 +268,71 @@ DWORD WINAPI readforconnect(LPVOID t)
 			else
 				if (dwReaded > 0)
 				{
-					MessageBox(hWndg, convertCharArrayToLPCWSTR(lpInBuffer), L"Caption", MB_OK);
-					if (lpInBuffer[0] = 'r')
+					if (lpInBuffer[0] &  0x01)
 					{
-						if (lpInBuffer[1] == '2')
-							changestatus();
+						if (maincomputer == true)
+						{
+							if (lpInBuffer[1] & 0x02)
+							{
+								computerscount = 2;
+								globaltimer = true;
+							}
+							if (lpInBuffer[1] & 0x02)
+							{
+								computerscount = 3;
+								globaltimer = true;
+							}
+								
+						}
 						else
 						{
-							if (lpInBuffer[1] == '1')
+							//MessageBox(hWndg, L"Got the file", L"Caption", MB_OK);
+							a1->setid((int)lpInBuffer[1] + 1);
+							globaltimer = true;
+							if (buffer == NULL)
 							{
-								MessageBox(hWndg, L"Got the file", L"Caption", MB_OK);
-								setid(atoi(&lpInBuffer[1]) + 1);
-								str1[1] = '2';
-								CreateThread(NULL, 0, writetoconnect, str1, NULL, NULL);
+								buffer = (char*)malloc(sizeof(char) * 2);
+								buffer[0] = 0x01;
+								buffer[1] = (int)lpInBuffer[1] + 1;
+								bytestosend = 2;
 							}
+							CreateThread(NULL, 0, writetoconnect, buffer, bytestosend, NULL);
 						}
 					}
 				}
-		} 
-	EventMask = 0;
-	ResetEvent(OL.hEvent);
-	}
-	while (1);
+
+		}
+		EventMask = 0;
+		ResetEvent(OL.hEvent);
+	} while (1);
 }
 
-
-
-
-class registration
-{
-private:
-	int id;
-	bool success;
-public:
-	registration(bool major, int comtowrite, int comtoread)
-	{
-		struct a now;
-
-		now.buff[0] = 'r';
-		now.buff[1] = '0';
-		Write = new Comport(comtowrite);
-		Read = new Comport(comtoread);
-		Write->open();
-		Read->open();
-		CreateThread(NULL, 0, readforconnect, &now, 0, NULL);
-	}
-	void close()
-	{
-		Write->close();
-		Read->close();
-	}
-	void setid(int a)
-	{
-		id = a;
-	}
-};
-
-registration *a1;
-
-
-void setid(int id)
-{
-	a1->setid(id);
-}
-
-void WorkWithCom(HWND hWnd, int com1, int com2, bool major)
-{
-	hWndg = hWnd;
-	Comport *commer;
-
-	a1 = new registration(major, com1, com2);
-}
-
-bool globalgavno = false;
-
-void changestatus()
-{
-	globalgavno = true;
-	MessageBox(hWndg, L"Успешная регистрация", L"Caption", MB_OK);
-}
 
 
 void write()
 {
-	char a[2];
-
-	str1[0] = 'r';
-	str1[1] = '1';
-	CreateThread(NULL, 0, writetoconnect,NULL , 0, NULL);
+	if (!globaltimer)
+	{
+		maincomputer = true;
+		a1->setid(1);
+		buffer = (char*)malloc(sizeof(char) * 2);
+		buffer[0] = 1;
+		buffer[1] = 1;
+		bytestosend = 2;
+		CreateThread(NULL, 0, writetoconnect, NULL, 0, NULL);
+		CreateThread(NULL, 0, timer, NULL, 0, NULL);
+	}
+	else
+	{
+		//char text[31] = "Компьютер уже зарегестрирован";
+		char a;
+		//text[30]
+		a = a1->getid() + '0';
+		wchar_t* str;
+		str = convertCharArrayToLPCWSTR(&a);
+		MessageBox(hWndg, str, L"Caption", MB_OK);
+		free (str);
+	}
 }
 
 void close()
