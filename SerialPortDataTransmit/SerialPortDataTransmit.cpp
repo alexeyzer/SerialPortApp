@@ -15,6 +15,7 @@ HWND textbox2;
 HWND button;
 HWND button2;
 HWND button3;
+HWND button4;
 
 // Отправить объявления функций, включенных в этот модуль кода:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -161,6 +162,17 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	   (HMENU)3,
 	   NULL,
 	   NULL);
+   button4 = CreateWindow(_T("BUTTON"),
+	   _T("файл"),
+	   WS_CHILD | WS_VISIBLE | WS_BORDER,
+	   120,
+	   100,
+	   120,
+	   33,
+	   hWnd,
+	   (HMENU)4,
+	   NULL,
+	   NULL);
 
    if (!hWnd)
    {
@@ -212,12 +224,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				case 2:
 				{
 
-					write();
+					registration();
 					break;
 				}
 				case 3:
 				{
 					close();
+					break;
+				}
+				case 4:
+				{
+					transmition();
 					break;
 				}
 

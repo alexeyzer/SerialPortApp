@@ -6,7 +6,9 @@
 #include <string>
 using namespace std;
 #include <bitset>
+#include <fstream>
 #include <iostream>
+#include <ostream>
 
 HWND hWndg;
 bool globaltimer = false;
@@ -309,7 +311,7 @@ DWORD WINAPI read(LPVOID t)
 
 
 
-void write()
+void registration()
 {
 	if (!globaltimer)
 	{
@@ -333,6 +335,46 @@ void write()
 		MessageBox(hWndg, str, L"Caption", MB_OK);
 		free (str);
 	}
+}
+
+void transmition()
+{
+	ifstream f("./Text.txt", ios::binary | ios::in);
+	ofstream w("./Text1.txt", ios::binary | std::fstream::out);
+	char *buff = NULL;
+	char *temp = NULL;
+	char* mem = NULL;
+	buff = (char*)malloc(sizeof(char)*500);
+	int strsize = 0;
+	int readed = 0;
+	while ((readed = f.read(buff, 500).gcount()) > 0)
+	{
+		if (mem == NULL)
+		{
+			strsize = readed;
+			mem = (char*)malloc(sizeof(char) * readed);
+			memcpy(mem, buff, readed);
+		}
+		else
+		{
+			temp = mem;
+			mem = (char*)malloc(sizeof(char) * (strsize + readed));
+			memcpy(mem, temp, strsize);
+			memcpy(mem + strsize, buff, readed);
+			free(temp);
+			strsize = strsize + readed;
+		}
+		//for (int i = 7; i >= 0; i--) // or (int i = 0; i < 8; i++)  if you want reverse bit order in bytes
+		//{
+		//	int a = ((c >> i) & 1);
+		//	char b = '0' + a;
+		//	w.write(&b, 1);
+		//}
+		//w.close();
+	}
+
+	//w.write(mem, strsize);
+	//w.close();
 }
 
 void close()
