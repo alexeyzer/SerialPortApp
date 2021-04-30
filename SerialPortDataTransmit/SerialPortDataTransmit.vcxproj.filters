@@ -75,5 +75,8 @@
     <Image Include="SerialPortDataTransmit.ico">
       <Filter>Файлы ресурсов</Filter>
     </Image>
+    <Image Include="SerialPortIcon.bmp">
+      <Filter>Файлы ресурсов</Filter>
+    </Image>
   </ItemGroup>
 </Project>

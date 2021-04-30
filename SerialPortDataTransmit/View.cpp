@@ -6,6 +6,8 @@
 
 #define M_PI 3.1415926535897931084
 #define GRADIENT_CHANGE_STEPS 1000
+#define GRADIENT_OBJ_SIZE 100
+
 
 double red = 1;
 double green = 0;
@@ -17,6 +19,9 @@ HANDLE colorThread;
 double wantedRed = 0;
 double wantedGreen = 0;
 double wantedBlue = 0;
+
+int StrokeWidth = 200;
+
 
 const wchar_t * message = TEXT("fuck me\0");
 size_t messageLength = 0;
@@ -42,42 +47,22 @@ DWORD WINAPI changeColorProc(LPVOID t) {
 	return 0;
 }
 
-#define GRADIENT_OBJ_SIZE 200.0
 
 void ViewHandler::changeStatusToError() {
-	wantedRed = 1;
-	wantedGreen = 0;
-	wantedBlue = 0;
-	message = TEXT("error\0");
-	std::tuple<double, double, double> COLOR{1,0,0};
-	changeColorToSmooth(COLOR);
+	changeColorToSmooth(1,0,0);
 }
 void ViewHandler::changeStatusToWaiting() {
-	wantedRed = 1;
-	wantedGreen = 0.2;
-	wantedBlue = 1;
-	message = TEXT("waiting\0");
-	std::tuple<double, double, double> COLOR{ 1,1,0 };
-	changeColorToSmooth(COLOR);
+	changeColorToSmooth(1, 0.2, 1);
 }
 void ViewHandler::changeStatusToSuccess() {
-	wantedRed = 0;
-	wantedGreen = 1;
-	wantedBlue = 0;
-	message = TEXT("success\0");
-	std::tuple<double, double, double> COLOR{ 0,1,0 };
-	changeColorToSmooth(COLOR);
+	changeColorToSmooth(0, 1, 0);
 }
 
 void ViewHandler::changeStatusToRainbow() {
-	wantedRed = 1;
-	wantedGreen = 1;
-	wantedBlue = 1;
-	message = TEXT("Select a comport\0");
-	messageLength = 18;
-	std::tuple<double, double, double> COLOR{ 0,1,0 };
-	changeColorToSmooth(COLOR);
+	changeColorToSmooth(1, 1, 1);
 }
+
+
 
 
 std::vector<std::string> listArray(256);
@@ -85,6 +70,7 @@ size_t listArrayPos;
 size_t activeListObject=2;
 int listEnd=0;
 bool chooseOneList = false;
+int xOffset = 100;
 
 void ViewHandler::changeActiveListItemTo(size_t pos)
 {
@@ -97,11 +83,28 @@ void ViewHandler::changeActiveListItemTo(size_t pos)
 //
 //}
 
+bool transition=false;
+
+
+DWORD WINAPI transitionProc(LPVOID t) {
+	transition = true;
+	Sleep(1000);
+	transition = false;
+	return 0;
+}
+
+
+void StartTransition() {
+	if (!transition) {
+		CreateThread(NULL, NULL, transitionProc, 0, 0, 0);
+	}
+}
+
 void ViewHandler::sendMousePos(int posX, int posY)
 {
 	if (chooseOneList == true) {
-		if (posX > 300 && posX < 500) {
-			size_t pos = (posY - 100) / 60;
+		if (posX > 300 && posX < 300+StrokeWidth) {
+			size_t pos = (posY - xOffset) / 60;
 			if (pos >= listArrayPos) {
 				pos = listArrayPos-1;
 			}
@@ -111,10 +114,18 @@ void ViewHandler::sendMousePos(int posX, int posY)
 	}
 }
 
-void ViewHandler::createChooseOneList()
+void ViewHandler::createChooseOneList(int posX)
 {
+	xOffset = posX;
 	chooseOneList = true;
 	listArrayPos = 0;
+}
+
+void ViewHandler::deleteChooseOneList()
+{
+	chooseOneList = false;
+	listArrayPos = 0;
+	listArray = std::vector<std::string>(10);
 }
 
 void ViewHandler::addValueToList(const char* value)
@@ -133,6 +144,12 @@ const char* ViewHandler::getActiveListItemText()
 	return listArray[activeListObject-1].c_str();
 }
 
+void ViewHandler::DeleteItemFromList(size_t itemID) {
+	for (int i = itemID-1; i < listArrayPos; i++) {
+		std::swap(listArray[i], listArray[i + 1]);
+	}
+	listArrayPos--;
+}
 
 
 LPCWSTR s2ws(const std::string& s)
@@ -151,16 +168,17 @@ HFONT ListFont = CreateFont(50, 0, 0, 0, 0, 0, 0, 0, 0,
 	OUT_OUTLINE_PRECIS, CLIP_STROKE_PRECIS, 
 	3, FF_ROMAN, L"Proxima Nova");;
 
+
 void DrawList(HDC hdc) {
 	SelectObject(hdc, ListFont);
 	SetTextColor(hdc, 0x00FFFFFF);
 	SetBkMode(hdc, TRANSPARENT);
-	Rectangle(hdc, 300, 100+ 60 * (activeListObject-1), 500, 100 + 60 * (activeListObject));
+	Rectangle(hdc, 300, xOffset+ 60 * (activeListObject-1), 300+StrokeWidth, xOffset + 60 * (activeListObject));
 	
-	for (int i = 0; i < listArray.size(); i++) {
+	for (int i = 0; i < listArrayPos; i++) {
 		LPCWSTR temp = s2ws(listArray[i]);
 		
-		TextOut(hdc, 360,100 + 60 * i, temp , listArray[i].length());
+		TextOut(hdc, 360, xOffset + 60 * i, temp , listArray[i].length());
 		delete temp;
 	}
 }
@@ -170,8 +188,104 @@ int ViewHandler::getCurrentView()
 	return currentView;
 }
 
-void ViewHandler::changeCurrentView(int newView)
+HBITMAP SerialPortImage;
+bool DrawSerialPortImages = false;
+bool DrawPCPortImages = false;
+
+
+void LoadSerialPortImage() {
+	SerialPortImage = (HBITMAP)LoadImageW(NULL, L"SerialPortIcon.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+
+
+	if (SerialPortImage == NULL) {
+		DWORD error = GetLastError();
+		int a = 0;
+	}
+}
+
+
+void ShowImage(HDC hdc,int posX, int posY, HBITMAP Image) {
+	
+	// LoadSerialPortImage();
+	HGDIOBJ oldBitmap;
+	HDC buffer = CreateCompatibleDC(hdc);
+	BITMAP bitmap;
+	
+	oldBitmap = SelectObject(buffer, Image);
+
+	GetObject(Image, sizeof(bitmap), &bitmap);
+	BitBlt(hdc, posX, posY, 200, 200, buffer, 0, 0, SRCCOPY);
+
+	SelectObject(buffer, oldBitmap);
+	DeleteObject(buffer);
+}
+
+HBITMAP PcImage;
+
+void LoadPcImage() {
+	PcImage = (HBITMAP)LoadImageW(NULL, L"PCIcon.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+
+
+	if (SerialPortImage == NULL) {
+		DWORD error = GetLastError();
+		int a = 0;
+	}
+}
+
+
+
+
+wchar_t *comportSending;
+wchar_t *comportReceiving;
+
+void ViewHandler::changeCurrentView(int newView,const char* param1,const char* param2)
 {
+	switch (newView) {
+	case CHOOSECOMPORT_RECIEVING_VIEW:
+	{
+		changeColorToSmooth(1, 1, 1);
+		updateMessage(TEXT("Choose a receiving comport"), 28);
+		StartTransition();
+	}
+	break;
+	case CHOOSECOMPORT_SENDING_VIEW:
+	{
+		updateMessage(TEXT("Choose a sending comport"), 26);
+		StartTransition();
+	}
+	break;
+	case CONNECT_USING_SELECTEDCOMPORTS_VIEW:
+	{
+		comportSending = convertCharArrayToLPCWSTR(param1);
+		comportReceiving = convertCharArrayToLPCWSTR(param2);
+		updateMessage(TEXT("Selected comports"), 19);
+		deleteChooseOneList();
+		StartTransition();
+		DrawSerialPortImages = true;
+		StrokeWidth = 400;
+	}
+	break;
+	case CONNECTING_VIEW:
+	{
+		DrawSerialPortImages = false;
+		deleteChooseOneList();
+		updateMessage(TEXT("Connecting"), 12);
+		StartTransition();
+	}
+	break;
+	case CONNECT_SUCCESS_VIEW:
+	{
+		changeColorToSmooth(0, 0, 1);
+		updateMessage(TEXT("Connected"), 10);
+		DrawPCPortImages = true;
+	}
+	break;
+	case CONNECT_FAILURE_VIEW:
+	{
+
+	}
+	break;
+	}
 	currentView = newView;
 }
 
@@ -179,13 +293,18 @@ ViewHandler::ViewHandler() {
 	
 }
 
-void ViewHandler::changeColorToSmooth(std::tuple<double,double,double> wantedColor) {
+void ViewHandler::changeColorToSmooth(float RValue, float GValue, float BValue) {
+	
+	wantedRed = RValue;
+	wantedGreen = GValue;
+	wantedBlue = BValue;
+
 	if (!COLORCHANGEFLAG) {
-		colorThread = CreateThread(NULL, 0, changeColorProc, (LPVOID)&wantedColor, NULL, 0);
+		colorThread = CreateThread(NULL, 0, changeColorProc, NULL, NULL, 0);
 	}
 	else {
 		TerminateThread(colorThread, 0);
-		colorThread = CreateThread(NULL, 0, changeColorProc, (LPVOID)&wantedColor, NULL, 0);
+		colorThread = CreateThread(NULL, 0, changeColorProc, NULL, NULL, 0);
 	}
 }
 
@@ -195,8 +314,9 @@ ViewHandler::ViewHandler(HWND hWnd, COLORREF backgroundColor,
 	startView();
 }
 
-void ViewHandler::updateMessage(LPWSTR) {
-	
+void ViewHandler::updateMessage(const wchar_t* text, size_t length) {
+	message = text;
+	messageLength = length;
 }
 
 
@@ -222,18 +342,20 @@ DWORD WINAPI continueDrawLoop(LPVOID t) {
 	// long diff = (screenRect.bottom - topValue) / 2;
 	double step = (2 * M_PI) / (screenRect.right + GRADIENT_OBJ_SIZE);
 	HFONT font = CreateFont(50, 0, 0, 0,0, 0, 0, 0, 0, OUT_OUTLINE_PRECIS, CLIP_STROKE_PRECIS, 3, FF_ROMAN, L"Proxima Nova");;
-	SetBkMode(bufferDC, TRANSPARENT);
-	SetTextColor(bufferDC, RGB(255, 255, 255));
-	SelectObject(bufferDC, font);
+	LoadSerialPortImage();
+	LoadPcImage();
 	while (true) {
 		float piValue = 0;
 		for (int x = screenRect.right + GRADIENT_OBJ_SIZE; x > 0; x--) {
-
+			
 			HDC bufferDCreDraw = CreateCompatibleDC(hdc);
 			HBITMAP bufferFramereDraw = CreateCompatibleBitmap(hdc,
 				screenRect.right - screenRect.left,
 				screenRect.bottom - screenRect.top);
 			SelectObject(bufferDCreDraw, bufferFramereDraw);
+			SetBkMode(bufferDCreDraw, TRANSPARENT);
+			SetTextColor(bufferDCreDraw, RGB(255, 255, 255));
+			SelectObject(bufferDCreDraw, font);
 
 			HBRUSH brush = CreateSolidBrush(RGB(
 				(127.5 + 127.5 * sin(piValue)) * green,
@@ -242,6 +364,19 @@ DWORD WINAPI continueDrawLoop(LPVOID t) {
 
 			SelectObject(bufferDC, brush);
 
+			if (DrawSerialPortImages) {
+				ShowImage(bufferDCreDraw, 100, 200,SerialPortImage);
+				ShowImage(bufferDCreDraw, 500, 200,SerialPortImage);
+				TextOut(bufferDCreDraw, 150, 400, comportSending, 5);
+				TextOut(bufferDCreDraw, 550, 400, comportReceiving, 5);
+			}
+
+			if (DrawPCPortImages) {
+				ShowImage(bufferDCreDraw, 66, 200, PcImage);
+				ShowImage(bufferDCreDraw, 300, 200, PcImage);
+				ShowImage(bufferDCreDraw, 533, 200, PcImage);
+			}
+			
 			HPEN pen = CreatePen(PS_SOLID, 3, RGB(
 				(127.5 + 127.5 * sin(piValue)) * green,
 				(127.5 + 127.5 * cos(piValue)) * blue,
@@ -249,14 +384,14 @@ DWORD WINAPI continueDrawLoop(LPVOID t) {
 
 			SelectObject(bufferDC, pen);
 
-			Rectangle(bufferDC, x - 200, 0, x, 800);
-
+			Ellipse(bufferDC, x - GRADIENT_OBJ_SIZE, 0, x,800);
 			piValue += step;
+			
 
 			DeleteObject(brush);
 			DeleteObject(pen);
 
-			TextOut(bufferDC, 50, 50, message, messageLength);
+			TextOut(bufferDCreDraw, 50, 50, message, messageLength);
 
 			
 
@@ -291,9 +426,11 @@ DWORD WINAPI continueDrawLoop(LPVOID t) {
 				screenRect.bottom - screenRect.top,
 				bufferDC, 0, 0, SRCCOPY);
 
-			BitBlt(hdcMerge, 0, 0, screenRect.right - screenRect.left,
-				screenRect.bottom - screenRect.top,
-				bufferDCreDraw, 0, 0, SRCPAINT);
+			if (!transition) {
+				BitBlt(hdcMerge, 0, 0, screenRect.right - screenRect.left,
+					screenRect.bottom - screenRect.top,
+					bufferDCreDraw, 0, 0, SRCPAINT);
+			}
 
 			BitBlt(hdc, 0, 0, screenRect.right - screenRect.left,
 				screenRect.bottom - screenRect.top,
@@ -305,8 +442,11 @@ DWORD WINAPI continueDrawLoop(LPVOID t) {
 			DeleteObject(bufferDCreDraw);
 			DeleteObject(bufferFramereDraw);
 
-
-			Sleep(5);
+			if (!transition) Sleep(2);
+			if (transition) {
+				Sleep(1);
+				x -= step * 2;
+			}
 		}
 
 

@@ -51,31 +51,6 @@ void openFile(HWND hWnd) {
 
 
 
-
-DWORD WINAPI Thread1(LPVOID t) {  //функция ,выполняемая первым потоком 
-
-	HDC hdc = GetDC((HWND)t);
-	RECT black;
-	black.top = 400;
-	black.bottom = 1000;			//координаты прямоугольника,который закрашивает предыдущее положение фигуры
-	black.left = 0;
-	black.right = 1000;
-	int speed = 1;
-	while (true) {
-		for (double x = M_PI / 2; x < (5 * M_PI) / 2; x += (0.002 * speed)) {
-			HPEN pen = CreatePen(PS_DASH, 2, RGB(120 * (sin(2 * x) + 1), 120 * (cos(4 * x) + 1), 120 * (cos(3 * x) + 1)));						//цвет обводки фигруы меняется в зависимости от x
-			HBRUSH brush = CreateSolidBrush(RGB(120 * (sin(2 * x) + 1), 120 * (cos(4 * x) + 1), 120 * (cos(3 * x) + 1)));
-			SelectObject(hdc, pen);
-			SelectObject(hdc, brush);
-			Ellipse(hdc, 200, 200, 400, 400);
-			Sleep(11);		//задержка 
-			DeleteObject(pen);						//удаление кисти и ручки ,чтобы избежать ошибок (иначе программа вылетает через какое-то время)
-			DeleteObject(brush);
-		}
-	}
-	return 0;
-}
-
 // Отправить объявления функций, включенных в этот модуль кода:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
@@ -141,7 +116,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.hIcon          = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SERIALPORTDATATRANSMIT));
     wcex.hCursor        = LoadCursor(nullptr, IDC_ARROW);
     wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
-    wcex.lpszMenuName   = MAKEINTRESOURCEW(IDC_SERIALPORTDATATRANSMIT);
+    wcex.lpszMenuName   = NULL;
     wcex.lpszClassName  = szWindowClass;
     wcex.hIconSm        = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
     return RegisterClassExW(&wcex);
@@ -241,8 +216,8 @@ Logger logger;
 
 ViewHandler handle;
 
-const char* receivingComport;
-const char* sendingComport;
+char* receivingComport = new char[6];
+char* sendingComport = new char[6];
 
 inline void fillChooseOneListWithActiveComports(ViewHandler handle) {
 	TCHAR lpTargetPath[5000];
@@ -276,10 +251,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		logger=Logger(hWnd, 300, 300);
 		handle = ViewHandler(hWnd,NULL,NULL,NULL);
 		
-		handle.createChooseOneList();
+		handle.createChooseOneList(100);
 		fillChooseOneListWithActiveComports(handle);
 
-		handle.changeCurrentView(CHOOSECOMPORT_RECIEVING_VIEW);
+		handle.changeCurrentView(CHOOSECOMPORT_RECIEVING_VIEW,NULL,NULL);
+		
 	}
 	break;
 	case WM_MOUSEMOVE: 
@@ -300,16 +276,37 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		switch (handle.getCurrentView()) {
 		case CHOOSECOMPORT_RECIEVING_VIEW:
 		{
-			receivingComport = handle.getActiveListItemText();
-			handle.changeCurrentView(CHOOSECOMPORT_SENDING_VIEW);                                                         
+			memcpy(receivingComport, handle.getActiveListItemText(), 7);
+			handle.changeCurrentView(CHOOSECOMPORT_SENDING_VIEW,NULL, NULL);
+			handle.DeleteItemFromList(handle.getActiveListItemID());
 		}
 		break;
 		case CHOOSECOMPORT_SENDING_VIEW:
 		{
-			sendingComport = handle.getActiveListItemText();
+			memcpy(sendingComport, handle.getActiveListItemText(), 7);
+			handle.changeCurrentView(CONNECT_USING_SELECTEDCOMPORTS_VIEW, sendingComport, receivingComport);
+			handle.deleteChooseOneList();
+			handle.createChooseOneList(550);
+			handle.addValueToList("Connect as main");
+			handle.addValueToList("Подключиться");
 
 		}
-		break;                                               
+		break;
+		case CONNECT_USING_SELECTEDCOMPORTS_VIEW:
+		{
+			handle.changeCurrentView(CONNECTING_VIEW, NULL, NULL);
+			
+		}
+		break;
+		case CONNECTING_VIEW:
+		{
+			handle.changeCurrentView(CONNECT_SUCCESS_VIEW, NULL, NULL);
+		}
+		break;
+		case CONNECT_SUCCESS_VIEW: 
+		{
+		}
+		break;
 		}
 	}
 	break;
@@ -350,14 +347,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}
         }
         break;
-    case WM_PAINT:
-        {
-            PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(hWnd, &ps);
-            // TODO: Добавьте сюда любой код прорисовки, использующий HDC...
-            EndPaint(hWnd, &ps);
-        }
-		break;
+   
     case WM_DESTROY:
         PostQuitMessage(0);
         break;
