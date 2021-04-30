@@ -155,7 +155,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
       CW_USEDEFAULT, 0, 800, 800, nullptr, nullptr, hInstance, nullptr);
-   textbox1 = CreateWindow(_T("EDIT"),
+   /*textbox1 = CreateWindow(_T("EDIT"),
 	   _T(""),
 	   WS_BORDER | WS_CHILD | WS_VISIBLE,
 	   0,
@@ -224,7 +224,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	   NULL,
 	   NULL);
    
-   
+   */
    if (!hWnd)
    {
       return FALSE;
@@ -241,6 +241,32 @@ Logger logger;
 
 ViewHandler handle;
 
+const char* receivingComport;
+const char* sendingComport;
+
+inline void fillChooseOneListWithActiveComports(ViewHandler handle) {
+	TCHAR lpTargetPath[5000];
+	char comportBase[4] = "COM";
+	wchar_t* device = new wchar_t[6];
+	for (int i = 0; i < 100; i++) { // проверка компортов с 0 по 100
+		char temp[6];
+		memset(temp, '\0', 6);
+		snprintf(temp, 6, "%s%i", comportBase, i);
+
+		MultiByteToWideChar(CP_ACP, 0, temp, 6, device, 6);
+		int a = 0;
+		if (QueryDosDevice(device, lpTargetPath, 5000) != 0) {
+			handle.addValueToList(temp);
+		}
+		else {
+			int a = 0;
+		}
+		int jopa = 0;
+
+	}
+	delete device;
+}
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
@@ -249,9 +275,44 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 		logger=Logger(hWnd, 300, 300);
 		handle = ViewHandler(hWnd,NULL,NULL,NULL);
+		
+		handle.createChooseOneList();
+		fillChooseOneListWithActiveComports(handle);
+
+		handle.changeCurrentView(CHOOSECOMPORT_RECIEVING_VIEW);
 	}
 	break;
+	case WM_MOUSEMOVE: 
+	{
+		TRACKMOUSEEVENT mousePos;
+		mousePos.cbSize = sizeof(TRACKMOUSEEVENT);
+		mousePos.dwFlags = TME_HOVER;
+		mousePos.dwHoverTime = HOVER_DEFAULT;
+		mousePos.hwndTrack = hWnd;
+		TrackMouseEvent(&mousePos);
+		int xPos = GET_X_LPARAM(lParam);
+		int yPos = GET_Y_LPARAM(lParam);
+		handle.sendMousePos(xPos, yPos);
+	}
+	break;
+	case WM_LBUTTONDOWN: 
+	{
+		switch (handle.getCurrentView()) {
+		case CHOOSECOMPORT_RECIEVING_VIEW:
+		{
+			receivingComport = handle.getActiveListItemText();
+			handle.changeCurrentView(CHOOSECOMPORT_SENDING_VIEW);                                                         
+		}
+		break;
+		case CHOOSECOMPORT_SENDING_VIEW:
+		{
+			sendingComport = handle.getActiveListItemText();
 
+		}
+		break;                                               
+		}
+	}
+	break;
     case WM_COMMAND:
 		{
 			switch (HIWORD(wParam))
@@ -316,11 +377,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 			case VK_LEFT:
 			{
+				handle.changeActiveListItemTo(3);
 				handle.changeStatusToWaiting();
 			}
 			break;
 			case VK_RIGHT:
 			{
+				handle.changeActiveListItemTo(1);
 				handle.changeStatusToRainbow();
 			}
 			break;
