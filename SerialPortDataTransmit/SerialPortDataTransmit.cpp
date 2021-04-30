@@ -214,8 +214,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 					GetWindowText(textbox1, text1, GetWindowTextLength(textbox1) + 1);
 					GetWindowText(textbox2, text2, GetWindowTextLength(textbox1) + 1);
-					MessageBox(hWnd,text1, L"Caption", MB_OK);
-					MessageBox(hWnd, text2, L"Caption", MB_OK);
 					com1 = _wtoi(text1);
 					com2 = _wtoi(text2);
 					WorkWithCom(hWnd, com1, com2, true);
@@ -224,7 +222,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				case 2:
 				{
 
-					registration();
+					reg();
 					break;
 				}
 				case 3:
@@ -250,6 +248,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_DESTROY:
+		sendclose();
         PostQuitMessage(0);
         break;
     default:
