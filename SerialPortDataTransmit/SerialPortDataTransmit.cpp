@@ -16,6 +16,7 @@ HWND button;
 HWND button2;
 HWND button3;
 HWND button4;
+HWND button5;
 
 // Отправить объявления функций, включенных в этот модуль кода:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -173,6 +174,17 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	   (HMENU)4,
 	   NULL,
 	   NULL);
+   button5 = CreateWindow(_T("BUTTON"),
+	   _T("проверить пакет"),
+	   WS_CHILD | WS_VISIBLE | WS_BORDER,
+	   120,
+	   120,
+	   120,
+	   33,
+	   hWnd,
+	   (HMENU)5,
+	   NULL,
+	   NULL);
 
    if (!hWnd)
    {
@@ -233,6 +245,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				case 4:
 				{
 					transmition();
+					break;
+				}
+				case 5:
+				{
+					testflag();
 					break;
 				}
 

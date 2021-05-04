@@ -7,6 +7,7 @@ void reg();
 void transmition();
 void sendclose();
 DWORD WINAPI read(LPVOID t);
+void testflag();
 
 class registration
 {

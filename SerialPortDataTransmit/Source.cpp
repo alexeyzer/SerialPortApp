@@ -4,7 +4,6 @@
 #include <locale>
 #include <codecvt>
 #include <string>
-#include <bitset>
 #include <fstream>
 #include <iostream>
 #include <ostream>
@@ -15,13 +14,15 @@ registration *a1;
 
 HWND hWndg;
 
-HANDLE life = NULL;
+int catcher = 0;
 
-int counterlife = 0;
+int catched = 0;
+
+int sender = 0;
+
+int recivestatus = 0;
 
 bool auntification = false;
-
-bitset<7> a;
 
 char* buffer = NULL;
 
@@ -31,7 +32,19 @@ int computerscount = 0;
 
 int result = 0;
 
+int livingflag = 0;
+
 bool maincomputer = false;
+
+char* temps = NULL;
+
+char *bufferread  = (char*)malloc(sizeof(char) * 60);
+
+void realocbuff()
+{
+	if (buffer == NULL)
+		buffer = (char*)malloc(sizeof(char) * 60);
+}
 
 
 class Comport
@@ -123,6 +136,108 @@ public:
 
 Comport* Read, * Write;
 
+char* decoder(char* bytes)
+{
+	char* result;
+	int i = 0;
+	result = (char*)calloc(1, sizeof(char));
+	*result |= ((bytes[0] >> 2) & 1);
+	*result |= (((bytes[0] >> 4) & 1) << 1);
+	*result |= (((bytes[0] >> 5) & 1) << 2);
+	*result |= (((bytes[0] >> 6) & 1) << 3);
+	*result |= (((bytes[1] >> 2) & 1) << 4);
+	*result |= (((bytes[1] >> 4) & 1) << 5);
+	*result |= (((bytes[1] >> 5) & 1) << 6);
+	*result |= (((bytes[1] >> 6) & 1) << 7);
+	*result = (char)*result;
+	return (result);
+}
+
+int iserror(char byte)
+{
+	if (((byte) & 1) ^ ((byte >> 2) & 1) ^ ((byte >> 4) & 1) ^ ((byte >> 6) & 1))
+		return (1);
+	if (((byte >> 1) & 1) ^ ((byte >> 2) & 1) ^ ((byte >> 5) & 1) ^ ((byte >> 6) & 1))
+		return (1);
+	if (((byte >> 3) & 1) ^ ((byte >> 4) & 1) ^ ((byte >> 5) & 1) ^ ((byte >> 6) & 1))
+		return (1);
+	return (0);
+}
+
+char* codder(char byte)
+{
+	int i;
+	int j;
+	int k;
+	char* a;
+
+	i = 0;
+	j = 0;
+	k = 2;
+	a = (char*)calloc(2, sizeof(char));
+	while (i < 8)
+	{
+		a[j] = a[j] | (((byte >> i) & 1) << k);
+		if (k < 6 && k >= 4)
+			k++;
+		else if (k == 2)
+			k += 2;
+		else if (k == 6)
+		{
+			k = 2;
+			j++;
+		}
+		i++;
+	}
+	i = 0;
+	while (i < 2)
+	{
+		a[i] |= ((a[i] >> 2) & 1) ^ ((a[i] >> 4) & 1) ^ ((a[i] >> 6) & 1);
+		a[i] |= (((a[i] >> 2) & 1) ^ ((a[i] >> 5) & 1) ^ ((a[i] >> 6) & 1)) << 1;
+		a[i] |= (((a[i] >> 4) & 1) ^ ((a[i] >> 5) & 1) ^ ((a[i] >> 6) & 1)) << 3;
+		i++;
+	}
+	return (a);
+}
+
+void decodeanndwritetofile(char* memoery, int syze)
+{
+	int i;
+	char* temp;
+	ofstream w("./Text1.txt", fstream::out);
+	i = 0;
+	while (i < syze * 2)
+	{
+		temp = decoder(&(memoery[i]));
+		i += 2;
+		w.write(temp, 1);
+		free(temp);
+	}
+}
+
+void codebuff()
+{
+	char* buff;
+	int		nowtowrite;
+	int		now;
+
+	now = 0;
+	nowtowrite = 0;
+	bytestosend = bytestosend * 2;
+	if (temps == NULL)
+		temps = (char*)calloc(bytestosend, sizeof(char));
+	while (now < bytestosend / 2)
+	{
+		buff = codder(buffer[now]);
+		memcpy(temps + nowtowrite, buff, 2);
+		nowtowrite += 2;
+		now++;
+		free(buff);
+	}
+	realocbuff();
+	memcpy(buffer, temps, bytestosend);
+}
+
 registration::registration(bool major, int comtowrite, int comtoread)
 {
 	Write = new Comport(comtowrite);
@@ -193,21 +308,6 @@ DWORD WINAPI timerforreg(LPVOID t)
 	return (1);
 }
 
-DWORD WINAPI timerforlife(LPVOID t)
-{
-	while (1)
-	{
-		Sleep(1000);
-		counterlife++;
-		if (counterlife > 30)
-		{
-			sendclose();
-			return(1);
-		}
-	}
-	return (1);
-}
-
 DWORD WINAPI writetoconnect(LPVOID t)
 {
 	DWORD temp, signal;
@@ -216,12 +316,12 @@ DWORD WINAPI writetoconnect(LPVOID t)
 	OVERLAPPED overlapped = { 0 };
 	bool result;
 
-	FlushFileBuffers(Write->reth());
 	overlapped.hEvent = CreateEvent(NULL, true, false, NULL);
 	if (!overlapped.hEvent)
-	{
 		MessageBox(hWndg, L"Ошибка", L"Caption", MB_OK);
-	}
+	if (buffer[0] == 3)
+		Sleep(3000);
+	codebuff();
 	while (1)
 	{
 		result = WriteFile(Write->reth(), buffer , bytestosend, &temp, &overlapped);
@@ -229,14 +329,30 @@ DWORD WINAPI writetoconnect(LPVOID t)
 		if ((signal == WAIT_OBJECT_0) && (GetOverlappedResult(Write->reth(), &overlapped, &temp2, true)))
 		{
 			if (temp2 > 0)
-			{
-				free(buffer);
-				buffer = NULL;
 				return (1);
-			}
 		}
 	}
 	return -1;
+}
+
+void decodetobuff(char* memoery, int syze)
+{
+	int		i;
+	int		j;
+	char	*temp;
+
+	i = 0;
+	j = 0;
+	if (syze > 60)
+		syze = 60;
+	while (i < syze)
+	{
+		temp = decoder(&(memoery[i]));
+		bufferread[j] = *temp;
+		free(temp);
+		i += 2;
+		j++;
+	}
 }
 
 DWORD WINAPI read(LPVOID t)
@@ -272,16 +388,17 @@ DWORD WINAPI read(LPVOID t)
 			else
 				if (dwReaded > 0)
 				{
-					if (lpInBuffer[0] == 1)
+					decodetobuff(lpInBuffer, dwReaded);
+					if (bufferread[0] == 1)
 					{
 						if (maincomputer == true)
 						{
-							if (lpInBuffer[1] == 2)
+							if (bufferread[1] == 2)
 							{
 								computerscount = 2;
 								auntification = true;
 							}
-							if (lpInBuffer[1] == 3)
+							if (bufferread[1] == 3)
 							{
 								computerscount = 3;
 								auntification = true;
@@ -289,34 +406,21 @@ DWORD WINAPI read(LPVOID t)
 						}
 						else
 						{
-							MessageBox(hWndg, L"Соединение", L"Caption", MB_OK);
-							a1->setid((int)lpInBuffer[1] + 1);
+							a1->setid((int)bufferread[1] + 1);
 							auntification = true;
-							if (buffer == NULL)
-								buffer = (char*)malloc(sizeof(char) * 2);
-							else
-							{
-								free(buffer);
-								buffer = (char*)malloc(sizeof(char) * 2);
-							}
+							realocbuff();
 							buffer[0] = 1;
-							buffer[1] = (int)lpInBuffer[1] + 1;
+							buffer[1] = (int)bufferread[1] + 1;
 							bytestosend = 2;
-							PurgeComm(Read->reth(), PURGE_RXCLEAR);
-							CreateThread(NULL, 0, writetoconnect, buffer, bytestosend, NULL);
+							CreateThread(NULL, 0, writetoconnect, NULL, bytestosend, NULL);
 						}
 					}
-					else if (lpInBuffer[0] == 2)
+					else if (bufferread[0] == 2)
 					{
+						//завершение программы
 						//уведомление о закрытии одного из приложения
 						//закрываем порты и уведомляем о разрыве соединения
-						if (buffer == NULL)
-							buffer = (char*)malloc(sizeof(char) * 1);
-						else
-						{
-							free(buffer);
-							buffer = (char*)malloc(sizeof(char) * 1);
-						}
+						realocbuff();
 						buffer[0] = 0x02;
 						bytestosend = 1;
 						CreateThread(NULL, 0, writetoconnect, buffer, bytestosend, NULL);
@@ -329,21 +433,39 @@ DWORD WINAPI read(LPVOID t)
 						if (a1)
 							a1->close();
 					}
-					else if (lpInBuffer[0] == 3)
+					else if (bufferread[0] == 3)
 					{
-						if (buffer == NULL)
-							buffer = (char*)malloc(sizeof(char) * 1);
-						else
-						{
-							free(buffer);
-							buffer = (char*)malloc(sizeof(char) * 1);
-						}
-						buffer[0] = 3;
+						realocbuff();
+						buffer[0] = 0x03;
 						bytestosend = 1;
-						TerminateThread(life, 0);
-						counterlife = 0;
-						life = CreateThread(NULL, 0, timerforlife, NULL, 0, NULL);
-						CreateThread(NULL, 0, writetoconnect, buffer, bytestosend, NULL);
+						if (catcher == 1)
+							catched = 1;
+						else
+							CreateThread(NULL, 0, writetoconnect, NULL, bytestosend, NULL);
+						if (livingflag == 1)
+						{
+							MessageBox(hWndg, L"пакет тут", L"Caption", MB_OK);
+							livingflag = 0;
+						}
+					}
+					else if (bufferread[0] == 4)
+					{
+						if (catcher == 0)
+						{
+							if (bufferread[1] == a1->getid())
+							{
+								//происходит прием на этот компьютер
+							}
+							else
+							{
+								//происходит ретрансляция через этот компьютер
+							}
+						}
+						realocbuff();
+						//перевести 
+						buffer[0] = 0x03;
+						bytestosend = 1;
+
 					}
 				}
 		}
@@ -360,30 +482,23 @@ DWORD WINAPI regthread(LPVOID t)
 	CreateThread(NULL, 0, timerforreg, NULL, 0, NULL);
 	while (result == 0)
 	{
-		buffer = (char*)malloc(sizeof(char) * 2);
+		realocbuff();
 		buffer[0] = 1;
 		buffer[1] = 1;
 		bytestosend = 2;
 		PurgeComm(Write->reth(), PURGE_TXCLEAR | PURGE_TXABORT);
-		CreateThread(NULL, 0, writetoconnect, NULL, 0, NULL);
-		Sleep(7000);
+		writetoconnect(NULL);
+		Sleep(4000);
 	}
 	if (result == 1)
 	{
 		//регистрация прошла успешно
 		//создаем пакет жизни
-		if (buffer == NULL)
-			buffer = (char*)malloc(sizeof(char) * 1);
-		else
-		{
-			free(buffer);
-			buffer = (char*)malloc(sizeof(char) * 1);
-		}
-		buffer[0] = 0x03;
+		realocbuff();
+		buffer[0] = 3;
 		bytestosend = 1;
 		PurgeComm(Write->reth(), PURGE_TXCLEAR | PURGE_TXABORT);
 		CreateThread(NULL, 0, writetoconnect, NULL, 0, NULL);
-		life = CreateThread(NULL, 0, timerforlife, NULL, 0, NULL);
 	}
 	else
 	{
@@ -410,46 +525,6 @@ void reg()
 		MessageBox(hWndg, str, L"Caption", MB_OK);
 		free (str);
 	}
-}
-
-void transmition()
-{
-	ifstream f("./Text.txt", ios::binary | ios::in);
-	ofstream w("./Text1.txt", ios::binary | std::fstream::out);
-	char *buff = NULL;
-	char *temp = NULL;
-	char* mem = NULL;
-	buff = (char*)malloc(sizeof(char)*500);
-	int strsize = 0;
-	int readed = 0;
-	while ((readed = f.read(buff, 500).gcount()) > 0)
-	{
-		if (mem == NULL)
-		{
-			strsize = readed;
-			mem = (char*)malloc(sizeof(char) * readed);
-			memcpy(mem, buff, readed);
-		}
-		else
-		{
-			temp = mem;
-			mem = (char*)malloc(sizeof(char) * (strsize + readed));
-			memcpy(mem, temp, strsize);
-			memcpy(mem + strsize, buff, readed);
-			free(temp);
-			strsize = strsize + readed;
-		}
-		//for (int i = 7; i >= 0; i--) // or (int i = 0; i < 8; i++)  if you want reverse bit order in bytes
-		//{
-		//	int a = ((c >> i) & 1);
-		//	char b = '0' + a;
-		//	w.write(&b, 1);
-		//}
-		//w.close();
-	}
-
-	//w.write(mem, strsize);
-	//w.close();
 }
 
 void close()
@@ -485,4 +560,95 @@ void sendclose()
 			PostQuitMessage(0);
 		}
 	}
+}
+
+
+DWORD WINAPI transmitionrun(LPVOID t)
+{
+	ifstream f("./Text.txt", ios::binary | ios::in);
+	char* buff = NULL;
+	int i;
+	char* temp = NULL;
+	char* mem = NULL;
+	int now = 0;
+	int nowtowrite = 0;
+	buff = (char*)calloc(500, sizeof(char));
+	int strsize = 0;
+	int readed = 0;
+
+	while ((readed = f.read(buff, 500).gcount()) > 0)
+	{
+		if (mem == NULL)
+		{
+			strsize = readed;
+			mem = (char*)calloc(readed, sizeof(char));
+			memcpy(mem, buff, readed);
+		}
+		else
+		{
+			temp = mem;
+			mem = (char*)calloc(strsize + readed, sizeof(char));
+			memcpy(mem, temp, strsize);
+			memcpy(mem + strsize, buff, readed);
+			free(temp);
+			strsize = strsize + readed;
+		}
+	}
+	free(buff);
+	temp = (char*)calloc((strsize * 2), sizeof(char));
+	while (now < strsize)
+	{
+		buff = codder(mem[now]);
+		memcpy(temp + nowtowrite, buff, 2);
+		nowtowrite += 2;
+		now++;
+		free(buff);
+	}
+	free(mem);
+	mem = temp;
+	temp = NULL;
+	now = 0;
+	//на данном этапе в mem лежит закодированный файл
+	catcher = 1;
+	while (catched == 0)
+		continue;
+	sender = 1;
+	i = 0;
+	realocbuff();
+	buffer[0] = 4;
+	buffer[1] = 2;
+	while (sender)
+	{
+		while (i < strsize * 2)
+		{
+			buffer[0] = mem[i];
+			buffer[1] = mem[i + 1];
+			i += 2;
+
+		}
+
+	}
+
+	/*
+	while (now < strsize * 2)
+	{
+		if (iserror(&(mem[now])) > 0)
+			cout << "error" << endl;
+		now += 2;
+	}
+	decodeanndwritetofile(mem, strsize);
+	*/
+	return (0);
+}
+
+void transmition()
+{
+	CreateThread(NULL, 0, transmitionrun, NULL, 0, NULL);
+}
+
+
+
+void testflag()
+{
+	livingflag = 1;
 }
