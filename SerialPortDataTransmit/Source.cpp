@@ -4,9 +4,6 @@
 #include <locale>
 #include <codecvt>
 #include <string>
-#include <fstream>
-#include <iostream>
-#include <ostream>
 #include "SerialPortDataTransmit.h"
 using namespace std;
 
@@ -20,11 +17,9 @@ int catched = 0;
 
 int sender = 0;
 
-int recivestatus = 0;
-
 bool auntification = false;
 
-char* buffer = NULL;
+char* buffer = (char*)malloc(sizeof(char) * 400);
 
 int bytestosend;
 
@@ -36,16 +31,23 @@ int livingflag = 0;
 
 bool maincomputer = false;
 
-char* temps = NULL;
+int error = 0;
 
-char *bufferread  = (char*)malloc(sizeof(char) * 60);
+int recivestatus;
 
-void realocbuff()
+char *bufferread  = (char*)calloc(400,sizeof(char) );
+
+bool registration::getstatusw(){return (write);}
+void registration::openfd()
 {
-	if (buffer == NULL)
-		buffer = (char*)malloc(sizeof(char) * 60);
+	fd.open(filename, fstream::out);
+	write = true;
 }
-
+void registration::getname(char *source, int len)
+{
+	filename = (char*)calloc(len, sizeof(char));
+	memcpy(filename, source, len);
+}
 
 class Comport
 {
@@ -220,12 +222,12 @@ void codebuff()
 	char* buff;
 	int		nowtowrite;
 	int		now;
+	char* temps;
 
 	now = 0;
 	nowtowrite = 0;
 	bytestosend = bytestosend * 2;
-	if (temps == NULL)
-		temps = (char*)calloc(bytestosend, sizeof(char));
+	temps = (char*)calloc(bytestosend, sizeof(char));
 	while (now < bytestosend / 2)
 	{
 		buff = codder(buffer[now]);
@@ -234,8 +236,8 @@ void codebuff()
 		now++;
 		free(buff);
 	}
-	realocbuff();
 	memcpy(buffer, temps, bytestosend);
+	free(temps);
 }
 
 registration::registration(bool major, int comtowrite, int comtoread)
@@ -260,6 +262,15 @@ void registration::setid(int a)
 int registration::getid()
 {
 	return id;
+}
+void registration::closefd()
+{
+	fd.close();
+}
+
+void registration::writetofile(char *mem)
+{
+	fd.write(mem, 2);
 }
 
 int StringToWString(std::wstring& ws, const std::string& s)
@@ -343,8 +354,15 @@ void decodetobuff(char* memoery, int syze)
 
 	i = 0;
 	j = 0;
-	if (syze > 60)
-		syze = 60;
+	if (syze > 400)
+		syze = 400;
+	while (i < syze)
+	{
+		if (iserror(memoery[i]) == 1)
+			error = 1;
+		i++;
+	}
+	i = 0;
 	while (i < syze)
 	{
 		temp = decoder(&(memoery[i]));
@@ -408,11 +426,10 @@ DWORD WINAPI read(LPVOID t)
 						{
 							a1->setid((int)bufferread[1] + 1);
 							auntification = true;
-							realocbuff();
 							buffer[0] = 1;
 							buffer[1] = (int)bufferread[1] + 1;
 							bytestosend = 2;
-							CreateThread(NULL, 0, writetoconnect, NULL, bytestosend, NULL);
+							writetoconnect(NULL);
 						}
 					}
 					else if (bufferread[0] == 2)
@@ -420,7 +437,6 @@ DWORD WINAPI read(LPVOID t)
 						//завершение программы
 						//уведомление о закрытии одного из приложения
 						//закрываем порты и уведомляем о разрыве соединения
-						realocbuff();
 						buffer[0] = 0x02;
 						bytestosend = 1;
 						CreateThread(NULL, 0, writetoconnect, buffer, bytestosend, NULL);
@@ -435,13 +451,12 @@ DWORD WINAPI read(LPVOID t)
 					}
 					else if (bufferread[0] == 3)
 					{
-						realocbuff();
 						buffer[0] = 0x03;
 						bytestosend = 1;
 						if (catcher == 1)
 							catched = 1;
 						else
-							CreateThread(NULL, 0, writetoconnect, NULL, bytestosend, NULL);
+							writetoconnect(NULL);
 						if (livingflag == 1)
 						{
 							MessageBox(hWndg, L"пакет тут", L"Caption", MB_OK);
@@ -450,25 +465,77 @@ DWORD WINAPI read(LPVOID t)
 					}
 					else if (bufferread[0] == 4)
 					{
-						if (catcher == 0)
+						if (error == 1)
 						{
-							if (bufferread[1] == a1->getid())
+							buffer[0] = 5;
+							buffer[1] = bufferread[1];
+							buffer[2] = 1;
+							bytestosend = 3;
+							writetoconnect(NULL);
+							error = 0;
+						}
+						else
+						{
+							if (catcher == 0)
 							{
-								//происходит прием на этот компьютер
-							}
-							else
-							{
-								//происходит ретрансляция через этот компьютер
+								if (bufferread[2] == a1->getid())
+								{
+									//происходит прием на этот компьютер
+									//запускаем функцию записи в файл
+									//MessageBox(hWndg, L"получение файла", L"Caption", MB_OK);
+									if (bufferread[3] == 1)
+									{
+										if (a1->getstatusw() == false)
+										{
+											a1->getname(bufferread + 4, bufferread[4]);
+											a1->openfd();
+										}
+									}
+									else if (bufferread[3] == 2)
+									{
+										a1->writetofile(&(bufferread[5]));
+									}
+									else if (bufferread[3] == 3)
+									{
+										a1->closefd();
+									}
+									buffer[0] = 5;
+									buffer[1] = bufferread[1];
+									buffer[2] = 2;
+									bytestosend = 3;
+									writetoconnect(NULL);
+								}
+								else
+								{
+									//происходит ретрансляция через этот компьютер
+									memcpy(buffer, bufferread, dwReaded / 2);
+									bytestosend = dwReaded / 2;
+									writetoconnect(NULL);
+								}
 							}
 						}
-						realocbuff();
-						//перевести 
-						buffer[0] = 0x03;
-						bytestosend = 1;
-
+					}
+					else if (bufferread[0] == 5)
+					{
+						if (bufferread[1] == a1->getid())
+						{
+							//MessageBox(hWndg, L"пришел ответ по файлу", L"Caption", MB_OK);
+							if (bufferread[2] == 1)
+								recivestatus = 1;//ошибка
+							else
+								recivestatus = 2; //дошло все нормально
+						}
+						else
+						{
+							memcpy(buffer, bufferread, dwReaded / 2);
+							bytestosend = dwReaded / 2;
+							writetoconnect(NULL);
+						}
+						
 					}
 				}
 		}
+		memset(bufferread, 0, 400);
 		EventMask = 0;
 		ResetEvent(OL.hEvent);
 	} while (1);
@@ -482,7 +549,6 @@ DWORD WINAPI regthread(LPVOID t)
 	CreateThread(NULL, 0, timerforreg, NULL, 0, NULL);
 	while (result == 0)
 	{
-		realocbuff();
 		buffer[0] = 1;
 		buffer[1] = 1;
 		bytestosend = 2;
@@ -494,11 +560,10 @@ DWORD WINAPI regthread(LPVOID t)
 	{
 		//регистрация прошла успешно
 		//создаем пакет жизни
-		realocbuff();
 		buffer[0] = 3;
 		bytestosend = 1;
 		PurgeComm(Write->reth(), PURGE_TXCLEAR | PURGE_TXABORT);
-		CreateThread(NULL, 0, writetoconnect, NULL, 0, NULL);
+		writetoconnect(NULL);
 	}
 	else
 	{
@@ -562,19 +627,42 @@ void sendclose()
 	}
 }
 
+char *extrudename(char* path)
+{
+	int i;
+	int len;
+	char *name;
+	i = 0;
+	len = 0;
+	while (path[i] != '\0')
+		i++;
+	while (path[i] != '/' && i > 0)
+	{
+		i--;
+		len++;
+	}
+	name = (char*)calloc(len, sizeof(char));
+	memcpy(name, path + i + 1, len);
+	return (name);
+}
 
 DWORD WINAPI transmitionrun(LPVOID t)
 {
-	ifstream f("./Text.txt", ios::binary | ios::in);
-	char* buff = NULL;
+
+	char path[] = ".//Text1.txt";
+	char path1[] = ".//Text.txt";
+	char* name;
+	ifstream f(path1, ios::binary | ios::in);
+	char buff[500];
 	int i;
 	char* temp = NULL;
 	char* mem = NULL;
 	int now = 0;
+	int namelen;
 	int nowtowrite = 0;
-	buff = (char*)calloc(500, sizeof(char));
 	int strsize = 0;
 	int readed = 0;
+	int idofrecivingcomp = 3;
 
 	while ((readed = f.read(buff, 500).gcount()) > 0)
 	{
@@ -594,7 +682,8 @@ DWORD WINAPI transmitionrun(LPVOID t)
 			strsize = strsize + readed;
 		}
 	}
-	free(buff);
+
+	/*
 	temp = (char*)calloc((strsize * 2), sizeof(char));
 	while (now < strsize)
 	{
@@ -606,38 +695,64 @@ DWORD WINAPI transmitionrun(LPVOID t)
 	}
 	free(mem);
 	mem = temp;
-	temp = NULL;
+	temp = NULL;*/
 	now = 0;
 	//на данном этапе в mem лежит закодированный файл
 	catcher = 1;
 	while (catched == 0)
 		continue;
 	sender = 1;
+	name = extrudename(path);
 	i = 0;
-	realocbuff();
+	namelen = strlen(name);
 	buffer[0] = 4;
-	buffer[1] = 2;
-	while (sender)
+	buffer[1] = 1;
+	buffer[2] = idofrecivingcomp;
+	buffer[3] = 1;
+	buffer[4] = namelen;
+	memcpy(buffer + 4, name, namelen);
+	bytestosend = 4 + namelen;
+	writetoconnect(NULL);
+	while (recivestatus != 2)
 	{
-		while (i < strsize * 2)
-		{
-			buffer[0] = mem[i];
-			buffer[1] = mem[i + 1];
+		buffer[0] = 4;
+		buffer[1] = a1->getid();
+		buffer[2] = idofrecivingcomp;
+		buffer[3] = 1;
+		buffer[4] = namelen;
+		memcpy(buffer + 4, name, namelen);
+		bytestosend = 4 + namelen;
+		writetoconnect(NULL);
+		while (recivestatus == 0)
+			continue;
+	}
+	recivestatus = 0;
+	while (i < strsize)
+	{
+		//MessageBox(hWndg, L"отправка куска", L"Caption", MB_OK);
+		buffer[0] = 4;
+		buffer[1] = a1->getid();
+		buffer[2] = idofrecivingcomp;
+		buffer[3] = 2;
+		buffer[4] = 2;
+		buffer[5] = mem[i];
+		buffer[6] = mem[i + 1];
+		bytestosend = 7;
+		writetoconnect(NULL);
+		while (recivestatus == 0)
+			continue;
+		if (recivestatus == 2)
 			i += 2;
-
-		}
-
+		recivestatus = 0;
 	}
-
-	/*
-	while (now < strsize * 2)
-	{
-		if (iserror(&(mem[now])) > 0)
-			cout << "error" << endl;
-		now += 2;
-	}
-	decodeanndwritetofile(mem, strsize);
-	*/
+	buffer[0] = 4;
+	buffer[1] = a1->getid();
+	buffer[2] = idofrecivingcomp;
+	buffer[3] = 3;
+	bytestosend = 4;
+	writetoconnect(NULL);
+	MessageBox(hWndg, L"файл доставлен", L"Caption", MB_OK);
+	free(name);
 	return (0);
 }
 
