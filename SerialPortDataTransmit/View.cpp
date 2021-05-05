@@ -6,7 +6,7 @@
 
 #define M_PI 3.1415926535897931084
 #define GRADIENT_CHANGE_STEPS 1000
-#define GRADIENT_OBJ_SIZE 100
+#define GRADIENT_OBJ_SIZE 300
 
 
 double red = 1;
@@ -171,7 +171,6 @@ HFONT ListFont = CreateFont(50, 0, 0, 0, 0, 0, 0, 0, 0,
 
 void DrawList(HDC hdc) {
 	SelectObject(hdc, ListFont);
-	SetTextColor(hdc, 0x00FFFFFF);
 	SetBkMode(hdc, TRANSPARENT);
 	Rectangle(hdc, 300, xOffset+ 60 * (activeListObject-1), 300+StrokeWidth, xOffset + 60 * (activeListObject));
 	
@@ -204,7 +203,7 @@ void LoadSerialPortImage() {
 }
 
 
-void ShowImage(HDC hdc,int posX, int posY, HBITMAP Image) {
+void ShowImage(HDC hdc,int posX, int posY, HBITMAP Image, int sizeX, int sizeY) {
 	
 	// LoadSerialPortImage();
 	HGDIOBJ oldBitmap;
@@ -214,7 +213,7 @@ void ShowImage(HDC hdc,int posX, int posY, HBITMAP Image) {
 	oldBitmap = SelectObject(buffer, Image);
 
 	GetObject(Image, sizeof(bitmap), &bitmap);
-	BitBlt(hdc, posX, posY, 200, 200, buffer, 0, 0, SRCCOPY);
+	BitBlt(hdc, posX, posY, sizeX, sizeY, buffer, 0, 0, SRCCOPY);
 
 	SelectObject(buffer, oldBitmap);
 	DeleteObject(buffer);
@@ -224,6 +223,18 @@ HBITMAP PcImage;
 
 void LoadPcImage() {
 	PcImage = (HBITMAP)LoadImageW(NULL, L"PCIcon.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+
+
+	if (SerialPortImage == NULL) {
+		DWORD error = GetLastError();
+		int a = 0;
+	}
+}
+
+HBITMAP BackgroundImage;
+
+void LoadBackgroundImage() {
+	BackgroundImage = (HBITMAP)LoadImageW(NULL, L"Background.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 
 
 	if (SerialPortImage == NULL) {
@@ -245,13 +256,13 @@ void ViewHandler::changeCurrentView(int newView,const char* param1,const char* p
 	{
 		changeColorToSmooth(1, 1, 1);
 		updateMessage(TEXT("Choose a receiving comport"), 28);
-		StartTransition();
+		// StartTransition();
 	}
 	break;
 	case CHOOSECOMPORT_SENDING_VIEW:
 	{
 		updateMessage(TEXT("Choose a sending comport"), 26);
-		StartTransition();
+		// StartTransition();
 	}
 	break;
 	case CONNECT_USING_SELECTEDCOMPORTS_VIEW:
@@ -260,7 +271,7 @@ void ViewHandler::changeCurrentView(int newView,const char* param1,const char* p
 		comportReceiving = convertCharArrayToLPCWSTR(param2);
 		updateMessage(TEXT("Selected comports"), 19);
 		deleteChooseOneList();
-		StartTransition();
+		// StartTransition();
 		DrawSerialPortImages = true;
 		StrokeWidth = 400;
 	}
@@ -270,7 +281,7 @@ void ViewHandler::changeCurrentView(int newView,const char* param1,const char* p
 		DrawSerialPortImages = false;
 		deleteChooseOneList();
 		updateMessage(TEXT("Connecting"), 12);
-		StartTransition();
+		// StartTransition();
 	}
 	break;
 	case CONNECT_SUCCESS_VIEW:
@@ -344,9 +355,10 @@ DWORD WINAPI continueDrawLoop(LPVOID t) {
 	HFONT font = CreateFont(50, 0, 0, 0,0, 0, 0, 0, 0, OUT_OUTLINE_PRECIS, CLIP_STROKE_PRECIS, 3, FF_ROMAN, L"Proxima Nova");;
 	LoadSerialPortImage();
 	LoadPcImage();
+	LoadBackgroundImage();
 	while (true) {
 		float piValue = 0;
-		for (int x = screenRect.right + GRADIENT_OBJ_SIZE; x > 0; x--) {
+		for (int x = screenRect.right + GRADIENT_OBJ_SIZE; x > 0; x-=2) {
 			
 			HDC bufferDCreDraw = CreateCompatibleDC(hdc);
 			HBITMAP bufferFramereDraw = CreateCompatibleBitmap(hdc,
@@ -356,7 +368,8 @@ DWORD WINAPI continueDrawLoop(LPVOID t) {
 			SetBkMode(bufferDCreDraw, TRANSPARENT);
 			SetTextColor(bufferDCreDraw, RGB(255, 255, 255));
 			SelectObject(bufferDCreDraw, font);
-
+			ShowImage(bufferDCreDraw, 0, 0, BackgroundImage, 800, 800);
+			SetTextColor(bufferDCreDraw, RGB(0, 0, 0));
 			HBRUSH brush = CreateSolidBrush(RGB(
 				(127.5 + 127.5 * sin(piValue)) * green,
 				(127.5 + 127.5 * cos(piValue)) * blue,
@@ -365,16 +378,16 @@ DWORD WINAPI continueDrawLoop(LPVOID t) {
 			SelectObject(bufferDC, brush);
 
 			if (DrawSerialPortImages) {
-				ShowImage(bufferDCreDraw, 100, 200,SerialPortImage);
-				ShowImage(bufferDCreDraw, 500, 200,SerialPortImage);
+				ShowImage(bufferDCreDraw, 100, 200,SerialPortImage , 200, 200);
+				ShowImage(bufferDCreDraw, 500, 200,SerialPortImage, 200 ,200);
 				TextOut(bufferDCreDraw, 150, 400, comportSending, 5);
 				TextOut(bufferDCreDraw, 550, 400, comportReceiving, 5);
 			}
 
 			if (DrawPCPortImages) {
-				ShowImage(bufferDCreDraw, 66, 200, PcImage);
-				ShowImage(bufferDCreDraw, 300, 200, PcImage);
-				ShowImage(bufferDCreDraw, 533, 200, PcImage);
+				ShowImage(bufferDCreDraw, 66, 200, PcImage, 200, 200);
+				ShowImage(bufferDCreDraw, 300, 200, PcImage, 200, 200);
+				ShowImage(bufferDCreDraw, 533, 200, PcImage, 200, 200);
 			}
 			
 			HPEN pen = CreatePen(PS_SOLID, 3, RGB(
@@ -385,7 +398,7 @@ DWORD WINAPI continueDrawLoop(LPVOID t) {
 			SelectObject(bufferDC, pen);
 
 			Ellipse(bufferDC, x - GRADIENT_OBJ_SIZE, 0, x,800);
-			piValue += step;
+			piValue += step*2;
 			
 
 			DeleteObject(brush);
@@ -397,16 +410,13 @@ DWORD WINAPI continueDrawLoop(LPVOID t) {
 
 			if (chooseOneList) {
 				HBRUSH listBrush = CreateSolidBrush(RGB(
-					(127.5 + 127.5 * sin(2 * piValue)) * red,
-					(127.5 + 127.5 * cos(-piValue)) * green,
-					(127.5 + 127.5 * sin(piValue)) * blue));
+					255,255,255));
 				SelectObject(bufferDCreDraw, listBrush);
 
 				HPEN listPen = CreatePen(PS_SOLID, 3, RGB(
-					(127.5 + 127.5 * sin(2 * piValue)) * red,
-					(127.5 + 127.5 * cos(-piValue)) * green,
-					(127.5 + 127.5 * sin(piValue)) * blue));
+					0,0,0));
 
+				SetTextColor(bufferDCreDraw, RGB(0, 0, 0));
 				SelectObject(bufferDCreDraw, listPen);
 
 				DrawList(bufferDCreDraw);
@@ -434,7 +444,7 @@ DWORD WINAPI continueDrawLoop(LPVOID t) {
 
 			BitBlt(hdc, 0, 0, screenRect.right - screenRect.left,
 				screenRect.bottom - screenRect.top,
-				hdcMerge, 0, 0, SRCCOPY);
+				hdcMerge, 0, 0, NOTSRCCOPY);
 
 			DeleteObject(hdcMerge);
 			DeleteObject(mergeFrame);
@@ -442,7 +452,7 @@ DWORD WINAPI continueDrawLoop(LPVOID t) {
 			DeleteObject(bufferDCreDraw);
 			DeleteObject(bufferFramereDraw);
 
-			if (!transition) Sleep(2);
+			if (!transition) Sleep(1);
 			if (transition) {
 				Sleep(1);
 				x -= step * 2;

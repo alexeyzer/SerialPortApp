@@ -218,6 +218,23 @@ ViewHandler handle;
 
 char* receivingComport = new char[6];
 char* sendingComport = new char[6];
+LPWSTR fileName;
+LPWSTR downloadDir;
+
+void open_file(HWND hWnd, LPWSTR output)
+{
+	OPENFILENAME ofn;
+
+	ZeroMemory(&ofn, sizeof(OPENFILENAME));
+	ofn.lStructSize = sizeof(OPENFILENAME);
+	ofn.hwndOwner = hWnd;
+	ofn.lpstrFile = output;
+	ofn.nMaxFile = 100;
+	ofn.lpstrFilter = TEXT("Текстовые файлы\0*.TXT\0");
+	ofn.nFilterIndex = 1;
+
+	GetOpenFileName(&ofn);
+}
 
 inline void fillChooseOneListWithActiveComports(ViewHandler handle) {
 	TCHAR lpTargetPath[5000];
@@ -279,6 +296,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			memcpy(receivingComport, handle.getActiveListItemText(), 7);
 			handle.changeCurrentView(CHOOSECOMPORT_SENDING_VIEW,NULL, NULL);
 			handle.DeleteItemFromList(handle.getActiveListItemID());
+			
 		}
 		break;
 		case CHOOSECOMPORT_SENDING_VIEW:
@@ -301,10 +319,34 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case CONNECTING_VIEW:
 		{
 			handle.changeCurrentView(CONNECT_SUCCESS_VIEW, NULL, NULL);
+			handle.deleteChooseOneList();
+			handle.createChooseOneList(550);
+			handle.addValueToList("Отправить");
+			handle.addValueToList("Сменить путь");
+			handle.addValueToList("Открыть файл");
+			
 		}
 		break;
 		case CONNECT_SUCCESS_VIEW: 
 		{
+			switch (handle.getActiveListItemID()) {
+			case SEND_FILE_CHOICE:
+			{
+				int a = 0;
+			}
+			break;
+			case OPEN_DIR_CHOICE:
+			{
+				open_file(hWnd,downloadDir);
+			}
+			break;
+			case OPEN_FILE_CHOICE:
+			{
+				open_file(hWnd,fileName);
+			}
+			break;
+
+			}
 		}
 		break;
 		}

@@ -21,7 +21,14 @@
 #define CONNECTING_VIEW 5
 #define CONNECT_SUCCESS_VIEW 6
 #define CONNECT_FAILURE_VIEW 7
+#define CHOOSE_FILE_VIEW 8
+#define CHOOSE_DIR_VIEW 9
+#define CONNECTED_VIEW 10
 
+
+#define SEND_FILE_CHOICE 1
+#define OPEN_DIR_CHOICE 2
+#define OPEN_FILE_CHOICE 3
 
 class ViewHandler{
 private: 
