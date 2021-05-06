@@ -40,7 +40,7 @@ char *bufferread  = (char*)calloc(400,sizeof(char) );
 bool registration::getstatusw(){return (write);}
 void registration::openfd()
 {
-	fd.open(filename, fstream::out);
+	fd.open(filename, ofstream::out | ofstream::trunc);
 	write = true;
 }
 void registration::getname(char *source, int len)
@@ -259,19 +259,16 @@ void registration::setid(int a)
 	char b;
 	id = a;
 }
-int registration::getid()
-{
-	return id;
-}
+int registration::getid(){return id;}
 void registration::closefd()
 {
 	fd.close();
+	write = false;
+	free(filename);
+	filename = NULL;
 }
 
-void registration::writetofile(char *mem)
-{
-	fd.write(mem, 2);
-}
+void registration::writetofile(char *mem, int size){fd.write(mem, size);}
 
 int StringToWString(std::wstring& ws, const std::string& s)
 {
@@ -331,7 +328,7 @@ DWORD WINAPI writetoconnect(LPVOID t)
 	if (!overlapped.hEvent)
 		MessageBox(hWndg, L"Ошибка", L"Caption", MB_OK);
 	if (buffer[0] == 3)
-		Sleep(3000);
+		Sleep(1000);
 	codebuff();
 	while (1)
 	{
@@ -492,9 +489,7 @@ DWORD WINAPI read(LPVOID t)
 										}
 									}
 									else if (bufferread[3] == 2)
-									{
-										a1->writetofile(&(bufferread[5]));
-									}
+										a1->writetofile(&(bufferread[5]), bufferread[4]);
 									else if (bufferread[3] == 3)
 									{
 										a1->closefd();
@@ -622,6 +617,7 @@ void sendclose()
 				b++;
 			}
 			a1->close();
+			a1->status = false;
 			PostQuitMessage(0);
 		}
 	}
@@ -655,6 +651,8 @@ DWORD WINAPI transmitionrun(LPVOID t)
 	ifstream f(path1, ios::binary | ios::in);
 	char buff[500];
 	int i;
+	int j;
+	int go;
 	char* temp = NULL;
 	char* mem = NULL;
 	int now = 0;
@@ -682,7 +680,7 @@ DWORD WINAPI transmitionrun(LPVOID t)
 			strsize = strsize + readed;
 		}
 	}
-
+	recivestatus = 0;
 	/*
 	temp = (char*)calloc((strsize * 2), sizeof(char));
 	while (now < strsize)
@@ -701,18 +699,9 @@ DWORD WINAPI transmitionrun(LPVOID t)
 	catcher = 1;
 	while (catched == 0)
 		continue;
-	sender = 1;
 	name = extrudename(path);
 	i = 0;
 	namelen = strlen(name);
-	buffer[0] = 4;
-	buffer[1] = 1;
-	buffer[2] = idofrecivingcomp;
-	buffer[3] = 1;
-	buffer[4] = namelen;
-	memcpy(buffer + 4, name, namelen);
-	bytestosend = 4 + namelen;
-	writetoconnect(NULL);
 	while (recivestatus != 2)
 	{
 		buffer[0] = 4;
@@ -727,6 +716,7 @@ DWORD WINAPI transmitionrun(LPVOID t)
 			continue;
 	}
 	recivestatus = 0;
+	go = 1;
 	while (i < strsize)
 	{
 		//MessageBox(hWndg, L"отправка куска", L"Caption", MB_OK);
@@ -734,15 +724,26 @@ DWORD WINAPI transmitionrun(LPVOID t)
 		buffer[1] = a1->getid();
 		buffer[2] = idofrecivingcomp;
 		buffer[3] = 2;
-		buffer[4] = 2;
-		buffer[5] = mem[i];
-		buffer[6] = mem[i + 1];
-		bytestosend = 7;
+		
+		j = 0;
+		while (j < 100 && i < strsize && go == 1)
+		{
+			if (mem[i] == '\r')
+				i++;
+			buffer[5 + j] = mem[i];
+			j++;
+			i++;
+		}
+		buffer[4] = j;//количество информационных битов
+		bytestosend = 5 + j;
 		writetoconnect(NULL);
+		Sleep(250);
 		while (recivestatus == 0)
 			continue;
 		if (recivestatus == 2)
-			i += 2;
+			go = 1;
+		else
+			go = 0;
 		recivestatus = 0;
 	}
 	buffer[0] = 4;
@@ -753,6 +754,10 @@ DWORD WINAPI transmitionrun(LPVOID t)
 	writetoconnect(NULL);
 	MessageBox(hWndg, L"файл доставлен", L"Caption", MB_OK);
 	free(name);
+	free(mem);
+	mem = NULL;
+	name = NULL;
+	f.close();
 	return (0);
 }
 

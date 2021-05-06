@@ -30,7 +30,7 @@ public:
 	bool getstatusw();
 	void openfd();
 	void getname(char* source, int len);
-	void writetofile(char* mem);
+	void writetofile(char* mem, int size);
 	void closefd();
 
 };
