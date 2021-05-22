@@ -3,8 +3,35 @@
 
 #include "framework.h"
 #include "SerialPortDataTransmit.h"
+#include <commdlg.h>
+#include <commctrl.h>
+#include "Logger.h"
+#include "View.h"
+#include "Shlobj.h"
+
+#pragma once 
+
+#pragma comment( lib, "comctl32.lib")
+
+#pragma comment( linker, "/manifestdependency:\"type='win32' \
+        name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
+        processorArchitecture='*' publicKeyToken='6595b64144ccf1df' \
+        language='*'\"")
+
+
 
 #define MAX_LOADSTRING 100
+#define M_PI 3.1415926535897932384
+#define OPEN_FILE_SUCCESS 1
+#define OPEN_FILE_FAILURE 2
+#define DEFAULT_BUTTON_HEIGHT 50
+#define DEFAULT_BUTTON_WIDTH 150
+#define READ_ACTION 3
+#define SEND_ACTION 2
+#define ESTABLISH_CONNECTION_ACTION 1
+#define WM_GETLOGGER 0x1337
+#define CONNECT_AS_MAIN 1
+#define CONNECT_AS_USUAL 2
 
 // Глобальные переменные:
 HINSTANCE hInst;                                // текущий экземпляр
@@ -13,8 +40,19 @@ WCHAR szWindowClass[MAX_LOADSTRING];            // имя класса глав�
 HWND textbox1;
 HWND textbox2;
 HWND button;
-HWND button2;
-HWND button3;
+HWND sendButton;
+HWND readButton;
+
+HWND openFileButton;
+
+
+void openFile(HWND hWnd) {
+	OPENFILENAMEA ofn;
+
+}
+
+
+
 
 // Отправить объявления функций, включенных в этот модуль кода:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -81,36 +119,27 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.hIcon          = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SERIALPORTDATATRANSMIT));
     wcex.hCursor        = LoadCursor(nullptr, IDC_ARROW);
     wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
-    wcex.lpszMenuName   = MAKEINTRESOURCEW(IDC_SERIALPORTDATATRANSMIT);
+    wcex.lpszMenuName   = NULL;
     wcex.lpszClassName  = szWindowClass;
     wcex.hIconSm        = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
-
     return RegisterClassExW(&wcex);
 }
 
-//
-//   ФУНКЦИЯ: InitInstance(HINSTANCE, int)
-//
-//   ЦЕЛЬ: Сохраняет маркер экземпляра и создает главное окно
-//
-//   КОММЕНТАРИИ:
-//
-//        В этой функции маркер экземпляра сохраняется в глобальной переменной, а также
-//        создается и выводится главное окно программы.
-//
+
+
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
    hInst = hInstance; // Сохранить маркер экземпляра в глобальной переменной
 
    HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-      CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
-   textbox1 = CreateWindow(_T("EDIT"),
+      CW_USEDEFAULT, 0, 800, 800, nullptr, nullptr, hInstance, nullptr);
+   /*textbox1 = CreateWindow(_T("EDIT"),
 	   _T(""),
 	   WS_BORDER | WS_CHILD | WS_VISIBLE,
 	   0,
-	   25,
-	   120,
-	   25,
+	   50,
+	   DEFAULT_BUTTON_WIDTH,
+	   DEFAULT_BUTTON_HEIGHT,
 	   hWnd,
 	   NULL,
 	   NULL,
@@ -120,9 +149,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	   _T(""),
 	   WS_BORDER | WS_CHILD | WS_VISIBLE,
 	   0,
-	   50,
-	   120,
-	   25,
+	   100,
+	   DEFAULT_BUTTON_WIDTH,
+	   DEFAULT_BUTTON_HEIGHT,
 	   hWnd,
 	   NULL,
 	   NULL,
@@ -132,129 +161,296 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	   _T("Подключить"),
 	   WS_CHILD | WS_VISIBLE | WS_BORDER,
 	   120,
-	   25,
-	   120,
-	   33,
+	   150,
+	   DEFAULT_BUTTON_WIDTH,
+	   DEFAULT_BUTTON_HEIGHT,
 	   hWnd,
-	   (HMENU)1,
+	   (HMENU)ESTABLISH_CONNECTION_ACTION,
 	   NULL,
 	   NULL);
-   button2 = CreateWindow(_T("BUTTON"),
+   sendButton = CreateWindow(_T("BUTTON"),
 	   _T("тест отправить"),
 	   WS_CHILD | WS_VISIBLE | WS_BORDER,
 	   120,
-	   50,
-	   120,
-	   33,
+	   200,
+	   DEFAULT_BUTTON_WIDTH,
+	   DEFAULT_BUTTON_HEIGHT,
 	   hWnd,
-	   (HMENU)2,
+	   (HMENU)SEND_ACTION,
 	   NULL,
 	   NULL);
-   button3 = CreateWindow(_T("BUTTON"),
+   readButton = CreateWindow(_T("BUTTON"),
 	   _T("тест считка"),
 	   WS_CHILD | WS_VISIBLE | WS_BORDER,
 	   120,
-	   80,
-	   120,
-	   33,
+	   250,
+	   DEFAULT_BUTTON_WIDTH,
+	   DEFAULT_BUTTON_HEIGHT,
 	   hWnd,
-	   (HMENU)3,
+	   (HMENU)READ_ACTION,
 	   NULL,
 	   NULL);
-
+   openFileButton = CreateWindow(_T("BUTTON"),
+	   _T("Открытие файла"),
+	   WS_CHILD | WS_VISIBLE | WS_BORDER,
+	   120,
+	   300,
+	   DEFAULT_BUTTON_WIDTH,
+	   DEFAULT_BUTTON_HEIGHT,
+	   hWnd,
+	   (HMENU)4,
+	   NULL,
+	   NULL);
+   
+   */
    if (!hWnd)
    {
       return FALSE;
    }
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
-
+   
    return TRUE;
 }
 
-//
-//  ФУНКЦИЯ: WndProc(HWND, UINT, WPARAM, LPARAM)
-//
-//  ЦЕЛЬ: Обрабатывает сообщения в главном окне.
-//
-//  WM_COMMAND  - обработать меню приложения
-//  WM_PAINT    - Отрисовка главного окна
-//  WM_DESTROY  - отправить сообщение о выходе и вернуться
-//
-//
+
+
+Logger logger;
+
+ViewHandler handle;
+
+char* receivingComport = new char[6];
+char* sendingComport = new char[6];
+
+wchar_t* fileName = new wchar_t[100];
+bool fileChosen = false;
+
+wchar_t* downloadDir = new wchar_t[100];
+void open_file(HWND hWnd, LPWSTR output)
+{
+	OPENFILENAME ofn = {0};
+	ZeroMemory(&ofn, sizeof(OPENFILENAME));
+	ofn.lStructSize = sizeof(OPENFILENAME);
+	ofn.hwndOwner = hWnd;
+	ofn.lpstrFile = fileName;
+	ofn.lpstrFile[0] = '\0';
+	ofn.nMaxFile = 100;
+	ofn.lpstrFilter = TEXT("Текстовые файлы\0*.TXT\0");
+	ofn.nFilterIndex = 1;
+	fileChosen = true;
+	GetOpenFileName(&ofn);
+	int a = 0;
+}
+
+void open_path(HWND hWnd, LPWSTR output)
+{
+	BROWSEINFO bia = { 0 };
+	// ZeroMemory(&bia, sizeof(OPENFILENAME));
+	bia.hwndOwner = hWnd;
+	LPITEMIDLIST pidl = SHBrowseForFolder(&bia);
+	SHGetPathFromIDListW(pidl, downloadDir);
+	int a = 0;
+}
+
+inline void fillChooseOneListWithActiveComports(ViewHandler handle) {
+	TCHAR lpTargetPath[5000];
+	char comportBase[4] = "COM";
+	wchar_t* device = new wchar_t[6];
+	for (int i = 0; i < 100; i++) { // проверка компортов с 0 по 100
+		char temp[6];
+		memset(temp, '\0', 6);
+		snprintf(temp, 6, "%s%i", comportBase, i);
+
+		MultiByteToWideChar(CP_ACP, 0, temp, 6, device, 6);
+		int a = 0;
+		if (QueryDosDevice(device, lpTargetPath, 5000) != 0) {
+			handle.addValueToList(temp);
+		}
+		else {
+			int a = 0;
+		}
+		int jopa = 0;
+
+	}
+	delete device;
+}
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
     {
-    case WM_COMMAND:
-		{
-			switch (HIWORD(wParam))
-			{
-			}
-			switch (LOWORD(wParam))
-			{
-				case 1:
-				{
-					TCHAR text1[30];
-					TCHAR text2[30];
-					int com1;
-					int com2;
+	case WM_USER:
+	{
+		handle.changeCurrentView(CONNECT_SUCCESS_VIEW_MAIN, NULL, NULL);
+		handle.deleteChooseOneList();
+		handle.createChooseOneList(550);
+		handle.addValueToList("Отправить");
+		handle.addValueToList("Сменить путь");
+		handle.addValueToList("Открыть файл");
+	}
+	break;
+	case WM_USER+1:
+	{
+		handle.changeCurrentView(CONNECT_SUCCESS_VIEW, NULL, NULL);
+		handle.deleteChooseOneList();
+		handle.createChooseOneList(550);
+		handle.addValueToList("Отправить");
+		handle.addValueToList("Сменить путь");
+		handle.addValueToList("Открыть файл");
+	}
+	break;
+	case WM_CREATE:
+	{
+		logger=Logger(hWnd, 300, 300);
+		handle = ViewHandler(hWnd,NULL,NULL,NULL);
+		
+		handle.createChooseOneList(100);
+		fillChooseOneListWithActiveComports(handle);
 
-					GetWindowText(textbox1, text1, GetWindowTextLength(textbox1) + 1);
-					GetWindowText(textbox2, text2, GetWindowTextLength(textbox1) + 1);
-					MessageBox(hWnd,text1, L"Caption", MB_OK);
-					MessageBox(hWnd, text2, L"Caption", MB_OK);
-					com1 = _wtoi(text1);
-					com2 = _wtoi(text2);
-					WorkWithCom(hWnd, com1, com2);
-					break;
+		handle.changeCurrentView(CHOOSECOMPORT_RECIEVING_VIEW,NULL,NULL);
+		
+	}
+	break;
+	case WM_MOUSEMOVE: 
+	{
+		TRACKMOUSEEVENT mousePos;
+		mousePos.cbSize = sizeof(TRACKMOUSEEVENT);
+		mousePos.dwFlags = TME_HOVER;
+		mousePos.dwHoverTime = HOVER_DEFAULT;
+		mousePos.hwndTrack = hWnd;
+		TrackMouseEvent(&mousePos);
+		int xPos = GET_X_LPARAM(lParam);
+		int yPos = GET_Y_LPARAM(lParam);
+		handle.sendMousePos(xPos, yPos);
+	}
+	
+	break;
+	case WM_LBUTTONDOWN: 
+	{
+		switch (handle.getCurrentView()) {
+		case CHOOSECOMPORT_RECIEVING_VIEW:
+		{
+			memcpy(receivingComport, handle.getActiveListItemText(), 7);
+			handle.changeCurrentView(CHOOSECOMPORT_SENDING_VIEW,NULL, NULL);
+			handle.DeleteItemFromList(handle.getActiveListItemID());
+			
+		}
+		break;
+		case CHOOSECOMPORT_SENDING_VIEW:
+		{
+			memcpy(sendingComport, handle.getActiveListItemText(), 7);
+			handle.changeCurrentView(CONNECT_USING_SELECTEDCOMPORTS_VIEW, sendingComport, receivingComport);
+			handle.deleteChooseOneList();
+			handle.createChooseOneList(550);
+			handle.addValueToList("Connect as main");
+			handle.addValueToList("Подключиться");
+
+		}
+		break;
+		case CONNECT_USING_SELECTEDCOMPORTS_VIEW:
+		{
+
+			WorkWithCom(hWnd, sendingComport, receivingComport, true);
+			switch (handle.getActiveListItemID()) {
+			case CONNECT_AS_MAIN:
+			{
+				reg();
+			}
+			break;
+			case CONNECT_AS_USUAL:
+			{
+			}
+			break;
+			}
+			handle.changeCurrentView(CONNECTING_VIEW, NULL, NULL);
+			
+		}
+		break;
+		case CONNECTING_VIEW:
+		{
+			handle.changeCurrentView(CONNECT_SUCCESS_VIEW, NULL, NULL);
+			handle.deleteChooseOneList();
+			handle.createChooseOneList(550);
+			handle.addValueToList("Отправить");
+			handle.addValueToList("Сменить путь");
+			handle.addValueToList("Открыть файл");
+			
+		}
+		break;
+		case CONNECT_SUCCESS_VIEW_MAIN: {
+
+		}
+		case CONNECT_SUCCESS_VIEW: 
+		{
+			switch (handle.getActiveListItemID()) {
+			case SEND_FILE_CHOICE:
+			{
+				open_file(hWnd, fileName);
+				setFileName(fileName);
+				if (fileChosen) {
+					transmition();
 				}
-				case 2:
-				{
-					trytowrrite();
-					break;
-				}
-				case 3:
-				{
-					trytoread();
-					break;
+				else {
+					MessageBox(hWnd, L"Ошибка", L"Файл для отправки не выбран", MB_OK);
 				}
 			}
-        }
-        break;
-    case WM_PAINT:
-        {
-            PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(hWnd, &ps);
-            // TODO: Добавьте сюда любой код прорисовки, использующий HDC...
-            EndPaint(hWnd, &ps);
-        }
-        break;
+			break;
+			case OPEN_DIR_CHOICE:
+			{
+				open_path(hWnd,downloadDir);
+				setPath(downloadDir);
+			}
+			break;
+			case OPEN_FILE_CHOICE:
+			{
+				
+			}
+			break;
+
+			}
+		}
+		break;
+		}
+	}
+	break;
+   
     case WM_DESTROY:
         PostQuitMessage(0);
         break;
-    default:
+	case WM_KEYDOWN:
+	{
+		switch (wParam)
+		{
+			case VK_UP:
+			{
+				handle.changeStatusToError();
+			}
+			break;
+			case VK_DOWN:
+			{
+				handle.changeStatusToSuccess();
+			}
+			break;
+			case VK_LEFT:
+			{
+				handle.changeActiveListItemTo(3);
+				handle.changeStatusToWaiting();
+			}
+			break;
+			case VK_RIGHT:
+			{
+				handle.changeActiveListItemTo(1);
+				handle.changeStatusToRainbow();
+			}
+			break;
+		}
+		break;
+	}
+
+	default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
 }
 
-// Обработчик сообщений для окна "О программе".
-INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-{
-    UNREFERENCED_PARAMETER(lParam);
-    switch (message)
-    {
-    case WM_INITDIALOG:
-        return (INT_PTR)TRUE;
 
-    case WM_COMMAND:
-        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
-        {
-            EndDialog(hDlg, LOWORD(wParam));
-            return (INT_PTR)TRUE;
-        }
-        break;
-    }
-    return (INT_PTR)FALSE;
-}
