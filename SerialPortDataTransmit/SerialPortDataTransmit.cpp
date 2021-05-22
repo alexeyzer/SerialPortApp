@@ -7,6 +7,7 @@
 #include <commctrl.h>
 #include "Logger.h"
 #include "View.h"
+#include "Shlobj.h"
 
 #pragma once 
 
@@ -29,6 +30,8 @@
 #define SEND_ACTION 2
 #define ESTABLISH_CONNECTION_ACTION 1
 #define WM_GETLOGGER 0x1337
+#define CONNECT_AS_MAIN 1
+#define CONNECT_AS_USUAL 2
 
 // Глобальные переменные:
 HINSTANCE hInst;                                // текущий экземпляр
@@ -218,22 +221,35 @@ ViewHandler handle;
 
 char* receivingComport = new char[6];
 char* sendingComport = new char[6];
-LPWSTR fileName;
-LPWSTR downloadDir;
 
+wchar_t* fileName = new wchar_t[100];
+bool fileChosen = false;
+
+wchar_t* downloadDir = new wchar_t[100];
 void open_file(HWND hWnd, LPWSTR output)
 {
-	OPENFILENAME ofn;
-
+	OPENFILENAME ofn = {0};
 	ZeroMemory(&ofn, sizeof(OPENFILENAME));
 	ofn.lStructSize = sizeof(OPENFILENAME);
 	ofn.hwndOwner = hWnd;
-	ofn.lpstrFile = output;
+	ofn.lpstrFile = fileName;
+	ofn.lpstrFile[0] = '\0';
 	ofn.nMaxFile = 100;
 	ofn.lpstrFilter = TEXT("Текстовые файлы\0*.TXT\0");
 	ofn.nFilterIndex = 1;
-
+	fileChosen = true;
 	GetOpenFileName(&ofn);
+	int a = 0;
+}
+
+void open_path(HWND hWnd, LPWSTR output)
+{
+	BROWSEINFO bia = { 0 };
+	// ZeroMemory(&bia, sizeof(OPENFILENAME));
+	bia.hwndOwner = hWnd;
+	LPITEMIDLIST pidl = SHBrowseForFolder(&bia);
+	SHGetPathFromIDListW(pidl, downloadDir);
+	int a = 0;
 }
 
 inline void fillChooseOneListWithActiveComports(ViewHandler handle) {
@@ -263,6 +279,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
     {
+	case WM_USER:
+	{
+		handle.changeCurrentView(CONNECT_SUCCESS_VIEW_MAIN, NULL, NULL);
+		handle.deleteChooseOneList();
+		handle.createChooseOneList(550);
+		handle.addValueToList("Отправить");
+		handle.addValueToList("Сменить путь");
+		handle.addValueToList("Открыть файл");
+	}
+	break;
+	case WM_USER+1:
+	{
+		handle.changeCurrentView(CONNECT_SUCCESS_VIEW, NULL, NULL);
+		handle.deleteChooseOneList();
+		handle.createChooseOneList(550);
+		handle.addValueToList("Отправить");
+		handle.addValueToList("Сменить путь");
+		handle.addValueToList("Открыть файл");
+	}
+	break;
 	case WM_CREATE:
 	{
 		logger=Logger(hWnd, 300, 300);
@@ -287,6 +323,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		int yPos = GET_Y_LPARAM(lParam);
 		handle.sendMousePos(xPos, yPos);
 	}
+	
 	break;
 	case WM_LBUTTONDOWN: 
 	{
@@ -312,6 +349,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 		case CONNECT_USING_SELECTEDCOMPORTS_VIEW:
 		{
+
+			WorkWithCom(hWnd, sendingComport, receivingComport, true);
+			switch (handle.getActiveListItemID()) {
+			case CONNECT_AS_MAIN:
+			{
+				reg();
+			}
+			break;
+			case CONNECT_AS_USUAL:
+			{
+			}
+			break;
+			}
 			handle.changeCurrentView(CONNECTING_VIEW, NULL, NULL);
 			
 		}
@@ -327,22 +377,33 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			
 		}
 		break;
+		case CONNECT_SUCCESS_VIEW_MAIN: {
+
+		}
 		case CONNECT_SUCCESS_VIEW: 
 		{
 			switch (handle.getActiveListItemID()) {
 			case SEND_FILE_CHOICE:
 			{
-				int a = 0;
+				open_file(hWnd, fileName);
+				setFileName(fileName);
+				if (fileChosen) {
+					transmition();
+				}
+				else {
+					MessageBox(hWnd, L"Ошибка", L"Файл для отправки не выбран", MB_OK);
+				}
 			}
 			break;
 			case OPEN_DIR_CHOICE:
 			{
-				open_file(hWnd,downloadDir);
+				open_path(hWnd,downloadDir);
+				setPath(downloadDir);
 			}
 			break;
 			case OPEN_FILE_CHOICE:
 			{
-				open_file(hWnd,fileName);
+				
 			}
 			break;
 
@@ -352,43 +413,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 	}
 	break;
-    case WM_COMMAND:
-		{
-			switch (HIWORD(wParam))
-			{
-			}
-			switch (LOWORD(wParam))
-			{
-				case ESTABLISH_CONNECTION_ACTION:
-				{
-					TCHAR text1[30];
-					TCHAR text2[30];
-					int com1;
-					int com2;
-
-					GetWindowText(textbox1, text1, GetWindowTextLength(textbox1) + 1);
-					GetWindowText(textbox2, text2, GetWindowTextLength(textbox1) + 1);
-					logger.addMessage(text1);
-					logger.addMessage(text2);
-					com1 = _wtoi(text1);
-					com2 = _wtoi(text2);
-					WorkWithCom(hWnd, com1, com2,logger);
-					break;
-				}
-				case SEND_ACTION:
-				{
-					logger.addMessage(L"hello\0");
-					trytowrrite(logger);
-					break;
-				}
-				case READ_ACTION:
-				{
-					trytoread(logger);
-					break;
-				}
-			}
-        }
-        break;
    
     case WM_DESTROY:
         PostQuitMessage(0);

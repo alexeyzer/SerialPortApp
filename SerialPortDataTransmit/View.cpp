@@ -291,6 +291,13 @@ void ViewHandler::changeCurrentView(int newView,const char* param1,const char* p
 		DrawPCPortImages = true;
 	}
 	break;
+	case CONNECT_SUCCESS_VIEW_MAIN:
+	{
+		changeColorToSmooth(0, 0, 1);
+		updateMessage(TEXT("Connected as main"), 18);
+		DrawPCPortImages = true;
+	}
+	break;
 	case CONNECT_FAILURE_VIEW:
 	{
 
