@@ -229,7 +229,6 @@ wchar_t* downloadDir = new wchar_t[100];
 void open_file(HWND hWnd, LPWSTR output)
 {
 	OPENFILENAME ofn = {0};
-	ZeroMemory(&ofn, sizeof(OPENFILENAME));
 	ofn.lStructSize = sizeof(OPENFILENAME);
 	ofn.hwndOwner = hWnd;
 	ofn.lpstrFile = fileName;
@@ -403,7 +402,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 			case OPEN_FILE_CHOICE:
 			{
-				
+				openfile();
 			}
 			break;
 
@@ -415,6 +414,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	break;
    
     case WM_DESTROY:
+		sendclose();
         PostQuitMessage(0);
         break;
 	case WM_KEYDOWN:

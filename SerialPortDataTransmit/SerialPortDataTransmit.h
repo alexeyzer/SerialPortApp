@@ -14,6 +14,13 @@ DWORD WINAPI read(LPVOID t);
 void testflag();
 void setFileName(wchar_t* filePath);
 void setPath(wchar_t* filePath);
+void openfile();
+
+struct users
+{
+	int id;
+	char* name = NULL;
+};
 
 class registration
 {
@@ -24,7 +31,11 @@ private:
 	char* filename = NULL;
 
 public:
+	int  filesize;
+	char path[255] = ".";
+	char *pathtofile = NULL;
 	bool status;
+	int  lastreciveid = 0;
 	registration(bool major, char *comtowrite, char *comtoread);
 	void close();
 	void setid(int a);
