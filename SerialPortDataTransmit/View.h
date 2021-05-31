@@ -28,7 +28,7 @@
 #define CHOOSE_FILE_VIEW 8
 #define CHOOSE_DIR_VIEW 9
 #define CONNECTED_VIEW 10
-
+#define INPUTNICKNAME_VIEW 13
 
 #define SEND_FILE_CHOICE 1
 #define OPEN_DIR_CHOICE 2
@@ -61,6 +61,8 @@ public:
 	void changeActiveListItemTo(size_t pos);
 	void sendMousePos(int posX, int posY);
 	size_t getActiveListItemID();
+	void updateNickname(char* name, size_t len);
+	size_t getSelectedPC();
 	void DeleteItemFromList(size_t itemID);
 	const char* getActiveListItemText();
 };

@@ -26,6 +26,20 @@ int StrokeWidth = 200;
 const wchar_t * message = TEXT("fuck me\0");
 size_t messageLength = 0;
 
+
+wchar_t* nickname= new wchar_t[100];
+size_t nicknameLength = 0;
+bool showNickname = false;
+
+
+void ViewHandler::updateNickname(char* name,size_t len)
+{
+	nicknameLength = len;
+	// convertCharArrayToLPCWSTR(name);
+
+	MultiByteToWideChar(CP_ACP, 0, name, -1, nickname,len);
+}
+
 DWORD WINAPI changeColorProc(LPVOID t) {
 	COLORCHANGEFLAG = true;
 	std::tuple<double,double,double>* wantedColor = static_cast<std::tuple<double, double, double>*>(t);
@@ -62,7 +76,9 @@ void ViewHandler::changeStatusToRainbow() {
 	changeColorToSmooth(1, 1, 1);
 }
 
-
+bool pcSelector = false;
+size_t pcAmount = 3;
+size_t selectedPC = 1;
 
 
 std::vector<std::string> listArray(256);
@@ -110,6 +126,17 @@ void ViewHandler::sendMousePos(int posX, int posY)
 			}
 			
 			changeActiveListItemTo(pos+1);
+		}
+	}
+	if (pcSelector == true) {
+		if (posX > 66 && posY < 400) {
+			selectedPC = 1;
+		}
+		if (posX > 300 && posY < 400) {
+			selectedPC = 2;
+		}
+		if (posX > 533 && posY < 400) {
+			selectedPC = 3;
 		}
 	}
 }
@@ -243,8 +270,9 @@ void LoadBackgroundImage() {
 	}
 }
 
-
-
+size_t ViewHandler::getSelectedPC() {
+	return selectedPC;
+}
 
 wchar_t *comportSending;
 wchar_t *comportReceiving;
@@ -267,6 +295,7 @@ void ViewHandler::changeCurrentView(int newView,const char* param1,const char* p
 	break;
 	case CONNECT_USING_SELECTEDCOMPORTS_VIEW:
 	{
+		showNickname = false;
 		comportSending = convertCharArrayToLPCWSTR(param1);
 		comportReceiving = convertCharArrayToLPCWSTR(param2);
 		updateMessage(TEXT("Selected comports"), 19);
@@ -288,6 +317,7 @@ void ViewHandler::changeCurrentView(int newView,const char* param1,const char* p
 	{
 		changeColorToSmooth(0, 0, 1);
 		updateMessage(TEXT("Connected"), 10);
+		pcSelector = true;
 		DrawPCPortImages = true;
 	}
 	break;
@@ -295,7 +325,15 @@ void ViewHandler::changeCurrentView(int newView,const char* param1,const char* p
 	{
 		changeColorToSmooth(0, 0, 1);
 		updateMessage(TEXT("Connected as main"), 18);
+		pcSelector = true;
 		DrawPCPortImages = true;
+	}
+	break;
+	case INPUTNICKNAME_VIEW:
+	{
+		showNickname = true;
+		changeColorToSmooth(0, 1, 1);
+		updateMessage(TEXT("Введите имя компьютера"), 23);
 	}
 	break;
 	case CONNECT_FAILURE_VIEW:
@@ -390,8 +428,28 @@ DWORD WINAPI continueDrawLoop(LPVOID t) {
 				TextOut(bufferDCreDraw, 150, 400, comportSending, 5);
 				TextOut(bufferDCreDraw, 550, 400, comportReceiving, 5);
 			}
-
+			if (showNickname) {
+				TextOut(bufferDCreDraw, 400-(nicknameLength*13), 300, nickname, nicknameLength);
+			}
 			if (DrawPCPortImages) {
+				switch (selectedPC) {
+				case 1:
+				{
+					Rectangle(bufferDCreDraw, 56, 190, 276, 410);
+				}
+				break;
+				case 2:
+				{
+					Rectangle(bufferDCreDraw, 290, 190, 510, 410);
+				}
+				break;
+				case 3:
+				{
+					Rectangle(bufferDCreDraw, 523, 190, 743, 410);
+				}
+				break;
+
+				}
 				ShowImage(bufferDCreDraw, 66, 200, PcImage, 200, 200);
 				ShowImage(bufferDCreDraw, 300, 200, PcImage, 200, 200);
 				ShowImage(bufferDCreDraw, 533, 200, PcImage, 200, 200);

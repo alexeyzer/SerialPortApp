@@ -219,6 +219,10 @@ Logger logger;
 
 ViewHandler handle;
 
+bool inputNickname = false;
+char* userNickname = new char[10];
+int nicknameCounter = 0;
+
 char* receivingComport = new char[6];
 char* sendingComport = new char[6];
 
@@ -339,12 +343,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case CHOOSECOMPORT_SENDING_VIEW:
 		{
 			memcpy(sendingComport, handle.getActiveListItemText(), 7);
-			handle.changeCurrentView(CONNECT_USING_SELECTEDCOMPORTS_VIEW, sendingComport, receivingComport);
+			handle.changeCurrentView(INPUTNICKNAME_VIEW, NULL, NULL);
+			inputNickname = true;
 			handle.deleteChooseOneList();
+		}
+		break;
+		case INPUTNICKNAME_VIEW: 
+		{
+			inputNickname = false;
+			handle.changeCurrentView(CONNECT_USING_SELECTEDCOMPORTS_VIEW, sendingComport, receivingComport);
+			
 			handle.createChooseOneList(550);
 			handle.addValueToList("Connect as main");
 			handle.addValueToList("Подключиться");
-
 		}
 		break;
 		case CONNECT_USING_SELECTEDCOMPORTS_VIEW:
@@ -419,6 +430,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
 	case WM_KEYDOWN:
 	{
+		if ((wParam > 0x30 && wParam < 0x5A) && inputNickname) {
+			userNickname[nicknameCounter] = (char)wParam;
+			nicknameCounter++;
+			handle.updateNickname(userNickname, nicknameCounter);
+		}
+		if (wParam == VK_BACK && inputNickname) {
+			nicknameCounter--;
+			handle.updateNickname(userNickname, nicknameCounter);
+		}
 		switch (wParam)
 		{
 			case VK_UP:
