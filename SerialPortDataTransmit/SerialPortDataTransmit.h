@@ -29,13 +29,15 @@ private:
 	bool			write = false;
 	std::ofstream	fd;
 	char* filename = NULL;
-
+	char* memory = NULL;
+	int size = 0;
 public:
 	int  filesize;
 	char path[255] = ".";
 	char *pathtofile = NULL;
 	bool status;
 	int  lastreciveid = 0;
+	char* username = NULL;
 	registration(bool major, char *comtowrite, char *comtoread);
 	void close();
 	void setid(int a);
@@ -43,7 +45,8 @@ public:
 	bool getstatusw();
 	void openfd();
 	void getname(char* source, int len);
-	void writetofile(char* mem, int size);
+	void writetofile();
 	void closefd();
+	void tomassive(char* source, int len);
 
 };

@@ -28,6 +28,10 @@ char* buffer = (char*)malloc(sizeof(char) * 4000);
 
 char* temps = (char*)malloc(sizeof(char) * 4000);
 
+char* bufferforlife = (char*)malloc(sizeof(char) * 4000);
+
+int bufferlifecount = 0;
+
 int bytestosend;
 
 int computerscount = 0;
@@ -35,6 +39,8 @@ int computerscount = 0;
 int result = 0;
 
 int livingflag = 0;
+
+bool view = false;
 
 bool maincomputer = false;
 
@@ -60,6 +66,26 @@ void registration::openfd()
 	memcpy(pathtofile + pathsize + 1, filename, a1->filesize);
 	fd.open(pathtofile, ofstream::out | ofstream::trunc);
 	write = true;
+}
+
+void registration::tomassive(char* source, int len)
+{
+	if (memory == NULL)
+	{
+		memory = (char*)calloc(len, sizeof(char));
+		memcpy(memory, source, len);
+		size = len;
+	}
+	else
+	{
+		char* temp = (char*)calloc(size + len, sizeof(char));
+		memcpy(temp, memory, size);
+		memcpy(temp + size, source, len);
+		free(memory);
+		memory = temp;
+		temp = NULL;
+		size = size + len;
+	}
 }
 void registration::getname(char* source, int len)
 {
@@ -106,7 +132,8 @@ public:
 				PostQuitMessage(0);
 			}
 			MessageBox(hWndg, L"Проблема с последовательным портом.", L"Caption", MB_OK);
-			a1->close();
+			if (a1 != NULL)
+				a1->close();
 			PostQuitMessage(0);
 		}
 
@@ -127,7 +154,8 @@ public:
 		timeouts.ReadTotalTimeoutMultiplier = 10;
 		timeouts.WriteTotalTimeoutConstant = 50;
 		timeouts.WriteTotalTimeoutMultiplier = 10;
-		if (!SetCommTimeouts(hSerial, &timeouts)) {
+		if (!SetCommTimeouts(hSerial, &timeouts)) 
+		{
 			MessageBox(hWndg, L"Проблема с таймаутом последовательного порта.", L"Caption", MB_OK);
 			a1->close();
 			PostQuitMessage(0);
@@ -136,7 +164,8 @@ public:
 	void GetSerialParams()
 	{
 		dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
-		if (!GetCommState(hSerial, &dcbSerialParams)) {
+		if (!GetCommState(hSerial, &dcbSerialParams)) 
+		{
 			MessageBox(hWndg, L"Проблема с получением  состояния последовательного порта.", L"Caption", MB_OK);
 			a1->close();
 			PostQuitMessage(0);
@@ -144,7 +173,8 @@ public:
 	}
 	void SetSerialParams()
 	{
-		if (!SetCommState(hSerial, &dcbSerialParams)) {
+		if (!SetCommState(hSerial, &dcbSerialParams)) 
+		{
 			MessageBox(hWndg, L"Проблема с заданием  состояния последовательного порта.", L"Caption", MB_OK);
 			a1->close();
 			PostQuitMessage(0);
@@ -274,7 +304,8 @@ registration::registration(bool major, char *comtowrite, char *comtoread)
 }
 void registration::close()
 {
-	a1->status = false;
+	if (a1)
+		a1->status = false;
 	Write->close();
 	Read->close();
 }
@@ -292,7 +323,21 @@ void registration::closefd()
 	filename = NULL;
 }
 
-void registration::writetofile(char* mem, int size) { fd.write(mem, size); }
+void registration::writetofile() 
+{
+	int written = 0;
+	int i = 1000;
+	if (size < i)
+		i = size;
+	while (size > 0)
+	{
+		fd.write(memory + written, i);
+		written = written + i;
+		size = size - i;
+		if (size < i)
+			i = size;
+	}
+}
 
 int StringToWString(std::wstring& ws, const std::string& s)
 {
@@ -347,16 +392,43 @@ DWORD WINAPI timerforreg(LPVOID t)
 		counter++;
 		if (counter > 30)
 		{
-			MessageBox(hWndg, L"Провалено", L"Caption", MB_OK);
 			result = 2;
 			writeperm = 0;
+			MessageBox(hWndg, L"Регистрация не завершилась успехом", L"Caption", MB_OK);
 			return (-1);
 		}
 	}
 	result = 1;
 	// главный компьютер установил соед с ведомыми 
-	SendMessage(hWndg, WM_USER, NULL, NULL);
 	return (1);
+}
+
+DWORD WINAPI writereg(LPVOID t)
+{
+	DWORD temp, signal;
+	DWORD dwBytesWritten;
+	DWORD temp2 = 0;
+	OVERLAPPED overlapped = { 0 };
+	bool result;
+
+	overlapped.hEvent = CreateEvent(NULL, true, false, NULL);
+	if (!overlapped.hEvent)
+		MessageBox(hWndg, L"Ошибка", L"Caption", MB_OK);
+	codebuff();
+	result = WriteFile(Write->reth(), buffer, bytestosend, &temp, &overlapped);
+	while (writeperm == 1)
+	{
+		signal = WaitForSingleObject(overlapped.hEvent, INFINITY);
+		if ((signal == WAIT_OBJECT_0) && (GetOverlappedResult(Write->reth(), &overlapped, &temp2, true)))
+		{
+			if (temp2 == bytestosend)
+				return (temp2);
+			else
+				result = WriteFile(Write->reth(), buffer, bytestosend, &temp, &overlapped);
+			Sleep(2000);
+		}
+	}
+	return -1;
 }
 
 DWORD WINAPI writetoconnect(LPVOID t)
@@ -380,7 +452,7 @@ DWORD WINAPI writetoconnect(LPVOID t)
 		if ((signal == WAIT_OBJECT_0) && (GetOverlappedResult(Write->reth(), &overlapped, &temp2, true)))
 		{
 			if (temp2 > 0)
-				return (1);
+				return (temp2);
 		}
 	}
 	return -1;
@@ -464,11 +536,12 @@ DWORD WINAPI read(LPVOID t)
 						}
 						else
 						{
+
 							a1->setid((int)bufferread[1] + 1);
 							auntification = true;
-							SendMessage(hWndg, WM_USER+1, NULL, NULL);
 							// установлено соед с главным
-
+							//SendMessage(hWndg, WM_USER + 1, NULL, NULL);
+							
 							buffer[0] = 1;
 							buffer[1] = (int)bufferread[1] + 1;
 							bytestosend = 2;
@@ -482,7 +555,7 @@ DWORD WINAPI read(LPVOID t)
 						//закрываем порты и уведомляем о разрыве соединения
 						buffer[0] = 0x02;
 						bytestosend = 1;
-						CreateThread(NULL, 0, writetoconnect, buffer, bytestosend, NULL);
+						writetoconnect(NULL);
 						MessageBox(hWndg, L"Соединение разорвано", L"Caption", MB_OK);
 						while (b < 2)
 						{
@@ -494,17 +567,63 @@ DWORD WINAPI read(LPVOID t)
 					}
 					else if (bufferread[0] == 3)
 					{
-						buffer[0] = 0x03;
-						bytestosend = 1;
+						memcpy(buffer, bufferread, dwReaded / 2);
+						if (buffer[1] == 0)
+						{
+							if (maincomputer == true)
+							{
+								if (buffer[2] == 2 || buffer[2] == 3)
+									buffer[1] = 1;
+								if (view == false)
+								{
+									SendMessage(hWndg, WM_USER, NULL, NULL);
+									view = true;
+								}
+								bytestosend = dwReaded / 2;
+							}
+							else
+							{
+								a1->username = (char*)malloc(sizeof(char) * 3);
+								a1->username[0] = 'a';
+								a1->username[1] = 'l';
+								a1->username[2] = '\0';
+								if (buffer[2] == 1)
+								{
+									buffer[5 + buffer[4]] = a1->getid();
+									buffer[5 + buffer[4] + 1] = strlen(a1->username);
+									memcpy(buffer + 5 + buffer[4] + 2, a1->username, strlen(a1->username));
+									buffer[2] = 2;
+									bytestosend = 5 + buffer[4] + 2 + buffer[5 + buffer[4] + 1];
+								}
+								else if (buffer[2] == 2)
+								{
+									buffer[5 + buffer[4] + 2 + buffer[5 + buffer[4] + 1]] = a1->getid();
+									buffer[5 + buffer[4] + 2 + buffer[5 + buffer[4] + 1] + 1] = strlen(a1->username);
+									memcpy(buffer + 5 + buffer[4] + 2 + buffer[4 + buffer[4] + 1] + 2, a1->username, strlen(a1->username));
+									bytestosend = 5 + buffer[4] + 2 + buffer[4 + buffer[4] + 1] + 2 + buffer[4 + buffer[4] + 2 + buffer[4 + buffer[4] + 1] + 1];
+									buffer[2] = 3;
+								}
+							}
+						}
+						else
+						{
+							bytestosend = dwReaded / 2;
+							if (view == false)
+							{
+								SendMessage(hWndg, WM_USER + 1, NULL, NULL);
+								view = true;
+							}
+						}
+						/*buffer[0] = 3;
+						bytestosend = 1;*/
 						if (catcher == 1)
+						{
+							memcpy(bufferforlife, buffer, dwReaded / 2);
+							bufferlifecount = dwReaded / 2;
 							catched = 1;
+						}
 						else
 							writetoconnect(NULL);
-						if (livingflag == 1)
-						{
-							MessageBox(hWndg, L"пакет тут", L"Caption", MB_OK);
-							livingflag = 0;
-						}
 					}
 					else if (bufferread[0] == 4)
 					{
@@ -537,9 +656,10 @@ DWORD WINAPI read(LPVOID t)
 										}
 									}
 									else if (bufferread[3] == 2)
-										a1->writetofile(&(bufferread[6]), converttoint(&bufferread[4]));
+										a1->tomassive(&(bufferread[6]), converttoint(&bufferread[4]));
 									else if (bufferread[3] == 3)
 									{
+										a1->writetofile();
 										a1->closefd();
 									}
 									buffer[0] = 5;
@@ -574,15 +694,19 @@ DWORD WINAPI read(LPVOID t)
 							bytestosend = dwReaded / 2;
 							writetoconnect(NULL);
 						}
-
 					}
 					else if (bufferread[0] == 6)
 					{
+						buffer[0] = 5;
+						buffer[1] = bufferread[2];
+						buffer[2] = 2;
+						bytestosend = 3;
+						writetoconnect(NULL);
 						MessageBox(hWndg, L"файл открыт", L"Caption", MB_OK);
 					}
 				}
 		}
-		memset(bufferread, 0, 400);
+		memset(bufferread, 0, 4000);
 		EventMask = 0;
 		ResetEvent(OL.hEvent);
 	} while (1);
@@ -591,23 +715,34 @@ DWORD WINAPI read(LPVOID t)
 DWORD WINAPI regthread(LPVOID t)
 {
 	maincomputer = true;
+	int temp = 0;
 	a1->setid(1);
+	a1->username = (char*)malloc(sizeof(char) * 3);
+	a1->username[0] = 'a';
+	a1->username[1] = 'l';
+	a1->username[2] = '\0';
 	CreateThread(NULL, 0, timerforreg, NULL, 0, NULL);
 	while (result == 0)
 	{
 		buffer[0] = 1;
 		buffer[1] = 1;
 		bytestosend = 2;
-		writetoconnect(NULL);
-		Sleep(2000);
+		writereg(NULL);
+		Sleep(3000);
 	}
+	while (result == 0)
+		continue;
 	if (result == 1)
 	{
 		//регистрация прошла успешно
 		//создаем пакет жизни
 		buffer[0] = 3;
-		bytestosend = 1;
-		PurgeComm(Write->reth(), PURGE_TXCLEAR | PURGE_TXABORT);
+		buffer[1] = 0;
+		buffer[2] = 1;
+		buffer[3] = a1->getid();
+		buffer[4] = strlen(a1->username);
+		memcpy(buffer + 5, a1->username, strlen(a1->username));
+		bytestosend = 5 + strlen(a1->username);
 		writetoconnect(NULL);
 	}
 	else
@@ -647,12 +782,16 @@ DWORD WINAPI fileopend(LPVOID t)
 	int go;
 
 	go = 1;
+	recivestatus = 0;
 	if (a1->status)
 	{
 		if (a1->lastreciveid != 0)
 		{
 			while (go == 1)
 			{
+				catcher = 1;
+				while (catched == 0)
+					continue;
 				buffer[0] = 6;
 				buffer[1] = a1->lastreciveid;//надо поставить id от которого был принят файл
 				buffer[2] = a1->getid();//id компьюетра который говорит что он открыл файл
@@ -665,14 +804,20 @@ DWORD WINAPI fileopend(LPVOID t)
 					go = 0;
 				recivestatus = 0;
 			}
+			catcher = 0;
+			catched = 0;
+			memcpy(buffer, bufferforlife, bufferlifecount);
+			bytestosend = bufferlifecount;
+			writetoconnect(NULL);
+			a1->lastreciveid = 0;
 		}
-		else
-			MessageBox(hWndg, L"Информация о последнем компьютере отсутствуют", L"Caption", MB_OK);
 	}
 	else
 		MessageBox(hWndg, L"Уведомление об откытии файла не будет отправленно так как нет соединения", L"Caption", MB_OK);
 	return (1);
 }
+
+
 
 void sendclose()
 {
@@ -717,7 +862,6 @@ char* extrudename(char* path)
 }
 
 char* path = new char[40];
-// char path1[] = ".//Text.txt";
 char* file = new char[40];
 
 
@@ -803,6 +947,7 @@ DWORD WINAPI transmitionrun(LPVOID t)
 			strsize = strsize + readed;
 		}
 	}
+	f.close();
 	recivestatus = 0;
 	now = 0;
 	//на данном этапе в mem лежит закодированный файл
@@ -853,7 +998,6 @@ DWORD WINAPI transmitionrun(LPVOID t)
 		free(tempsize);
 		bytestosend = 6 + j;
 		writetoconnect(NULL);
-		Sleep(250);
 		while (recivestatus == 0)
 			continue;
 		if (recivestatus == 2)
@@ -862,18 +1006,22 @@ DWORD WINAPI transmitionrun(LPVOID t)
 			go = 0;
 		recivestatus = 0;
 	}
+	catcher = 0;
+	catched = 0;
 	buffer[0] = 4;
 	buffer[1] = a1->getid();
 	buffer[2] = idofrecivingcomp;
 	buffer[3] = 3;
 	bytestosend = 4;
 	writetoconnect(NULL);
+	memcpy(buffer, bufferforlife, bufferlifecount);
+	bytestosend = bufferlifecount;
+	writetoconnect(NULL);
 	MessageBox(hWndg, L"файл доставлен", L"Caption", MB_OK);
 	free(name);
 	free(mem);
 	mem = NULL;
 	name = NULL;
-	f.close();
 	return (0);
 }
 
@@ -902,9 +1050,7 @@ DWORD WINAPI threadopenfile(LPVOID t)
 		free(newstr);
 	}
 	else
-	{
 		MessageBox(hWndg, L"Файл не был принят", L"Caption", MB_OK);
-	}
 	return (0);
 }
 
