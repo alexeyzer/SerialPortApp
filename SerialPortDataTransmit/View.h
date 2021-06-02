@@ -4,6 +4,7 @@
 #include <math.h>
 #include <tuple>
 #include "Source.h"
+#include <string>
 
 #define COLOR_RED RGB(255,0,0)
 #define COLOR_BLUE RGB(0,0,255)
@@ -63,6 +64,7 @@ public:
 	size_t getActiveListItemID();
 	void updateNickname(char* name, size_t len);
 	size_t getSelectedPC();
+	void addPC(LPCWSTR nickname, uint16_t length, uint16_t id);
 	void DeleteItemFromList(size_t itemID);
 	const char* getActiveListItemText();
 };
