@@ -28,7 +28,7 @@ char* buffer = (char*)malloc(sizeof(char) * 4000);
 
 char* temps = (char*)malloc(sizeof(char) * 4000);
 
-char* bufferforlife = (char*)malloc(sizeof(char) * 4000);
+char* bufferforlife = (char*)calloc(4000, sizeof(char));
 
 int bufferlifecount = 0;
 
@@ -145,7 +145,7 @@ public:
 		dcbSerialParams.ByteSize = 8;                           // задаём 8 бит в байте
 		dcbSerialParams.Parity = 1;                             // включаем проверку чётности
 		dcbSerialParams.StopBits = 0;                           // задаём один стоп-бит
-
+		dcbSerialParams.fRtsControl = RTS_CONTROL_DISABLE;
 
 		SetSerialParams();
 		COMMTIMEOUTS timeouts = { 0 };
@@ -425,7 +425,6 @@ DWORD WINAPI writereg(LPVOID t)
 				return (temp2);
 			else
 				result = WriteFile(Write->reth(), buffer, bytestosend, &temp, &overlapped);
-			Sleep(2000);
 		}
 	}
 	return -1;
@@ -442,8 +441,8 @@ DWORD WINAPI writetoconnect(LPVOID t)
 	overlapped.hEvent = CreateEvent(NULL, true, false, NULL);
 	if (!overlapped.hEvent)
 		MessageBox(hWndg, L"Ошибка", L"Caption", MB_OK);
-	if (buffer[0] == 3)
-		Sleep(1000);
+	if (buffer[0] == 3 && buffer[1] == 1)
+		Sleep(3000);
 	codebuff();
 	while (writeperm == 1)
 	{
@@ -498,12 +497,24 @@ DWORD WINAPI read(LPVOID t)
 	int cadr = 0;
 	int b = 0;
 	char* lpInBuffer = NULL;
+	DWORD lpModemStat = 0;
 
 	do
 	{
 		retcode = WaitCommEvent(Read->reth(), &EventMask, &OL);
 		if ((!retcode) && (GetLastError() == ERROR_IO_PENDING))
 			WaitForSingleObject(OL.hEvent, INFINITE);
+		if (EventMask & EV_CTS || EventMask & EV_DSR)
+		{
+			GetCommModemStatus(Read->reth(), &lpModemStat);
+			if (lpModemStat >= 0 && maincomputer == false)
+			{
+				EscapeCommFunction(Write->reth(), CLRRTS);
+				Sleep(500);
+				EscapeCommFunction(Write->reth(), SETRTS);
+			}
+			auntification = true;
+		}
 		if (EventMask & EV_RXCHAR)
 		{
 			DWORD ErrorMask = 0;
@@ -538,14 +549,13 @@ DWORD WINAPI read(LPVOID t)
 						{
 
 							a1->setid((int)bufferread[1] + 1);
-							auntification = true;
 							// установлено соед с главным
 							//SendMessage(hWndg, WM_USER + 1, NULL, NULL);
 							
 							buffer[0] = 1;
 							buffer[1] = (int)bufferread[1] + 1;
 							bytestosend = 2;
-							writetoconnect(NULL);
+							CreateThread(NULL, 0, writetoconnect, NULL, 0, NULL);
 						}
 					}
 					else if (bufferread[0] == 2)
@@ -555,7 +565,7 @@ DWORD WINAPI read(LPVOID t)
 						//закрываем порты и уведомляем о разрыве соединения
 						buffer[0] = 0x02;
 						bytestosend = 1;
-						writetoconnect(NULL);
+						CreateThread(NULL, 0, writetoconnect, NULL, 0, NULL);
 						MessageBox(hWndg, L"Соединение разорвано", L"Caption", MB_OK);
 						while (b < 2)
 						{
@@ -567,19 +577,19 @@ DWORD WINAPI read(LPVOID t)
 					}
 					else if (bufferread[0] == 3)
 					{
-						memcpy(buffer, bufferread, dwReaded / 2);
-						if (buffer[1] == 0)
+						if (bufferread[1] == 0)
 						{
 							if (maincomputer == true)
 							{
-								if (buffer[2] == 2 || buffer[2] == 3)
-									buffer[1] = 1;
+								if (bufferread[2] == 2 || bufferread[2] == 3)
+									bufferread[1] = 1;
 								if (view == false)
 								{
 									SendMessage(hWndg, WM_USER, NULL, NULL);
 									view = true;
 								}
 								bytestosend = dwReaded / 2;
+								memcpy(buffer, bufferread, bytestosend);
 							}
 							else
 							{
@@ -587,21 +597,23 @@ DWORD WINAPI read(LPVOID t)
 								a1->username[0] = 'a';
 								a1->username[1] = 'l';
 								a1->username[2] = '\0';
-								if (buffer[2] == 1)
+								if (bufferread[2] == 1)
 								{
-									buffer[5 + buffer[4]] = a1->getid();
-									buffer[5 + buffer[4] + 1] = strlen(a1->username);
-									memcpy(buffer + 5 + buffer[4] + 2, a1->username, strlen(a1->username));
-									buffer[2] = 2;
-									bytestosend = 5 + buffer[4] + 2 + buffer[5 + buffer[4] + 1];
+									bufferread[5 + bufferread[4]] = a1->getid();
+									bufferread[5 + bufferread[4] + 1] = strlen(a1->username);
+									memcpy(bufferread + 5 + bufferread[4] + 2, a1->username, strlen(a1->username));
+									bufferread[2] = 2;
+									bytestosend = 5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1];
+									memcpy(buffer, bufferread, bytestosend);
 								}
-								else if (buffer[2] == 2)
+								else if (bufferread[2] == 2)
 								{
-									buffer[5 + buffer[4] + 2 + buffer[5 + buffer[4] + 1]] = a1->getid();
-									buffer[5 + buffer[4] + 2 + buffer[5 + buffer[4] + 1] + 1] = strlen(a1->username);
-									memcpy(buffer + 5 + buffer[4] + 2 + buffer[4 + buffer[4] + 1] + 2, a1->username, strlen(a1->username));
-									bytestosend = 5 + buffer[4] + 2 + buffer[4 + buffer[4] + 1] + 2 + buffer[4 + buffer[4] + 2 + buffer[4 + buffer[4] + 1] + 1];
-									buffer[2] = 3;
+									bufferread[5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1]] = a1->getid();
+									bufferread[5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1] + 1] = strlen(a1->username);
+									memcpy(bufferread + 5 + bufferread[4] + 2 + bufferread[4 + bufferread[4] + 1] + 2, a1->username, strlen(a1->username));
+									bytestosend = 5 + bufferread[4] + 2 + bufferread[4 + bufferread[4] + 1] + 2 + bufferread[5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1] + 1];
+									bufferread[2] = 3;
+									memcpy(buffer, bufferread, bytestosend);
 								}
 							}
 						}
@@ -613,17 +625,18 @@ DWORD WINAPI read(LPVOID t)
 								SendMessage(hWndg, WM_USER + 1, NULL, NULL);
 								view = true;
 							}
+							memcpy(buffer, bufferread, dwReaded / 2);
 						}
 						/*buffer[0] = 3;
 						bytestosend = 1;*/
 						if (catcher == 1)
 						{
-							memcpy(bufferforlife, buffer, dwReaded / 2);
+							memcpy(bufferforlife, bufferread, dwReaded / 2);
 							bufferlifecount = dwReaded / 2;
 							catched = 1;
 						}
 						else
-							writetoconnect(NULL);
+							CreateThread(NULL, 0, writetoconnect, NULL, 0, NULL);
 					}
 					else if (bufferread[0] == 4)
 					{
@@ -633,7 +646,7 @@ DWORD WINAPI read(LPVOID t)
 							buffer[1] = bufferread[1];
 							buffer[2] = 1;
 							bytestosend = 3;
-							writetoconnect(NULL);
+							CreateThread(NULL, 0, writetoconnect, NULL, 0, NULL);
 							error = 0;
 						}
 						else
@@ -666,14 +679,14 @@ DWORD WINAPI read(LPVOID t)
 									buffer[1] = bufferread[1];
 									buffer[2] = 2;
 									bytestosend = 3;
-									writetoconnect(NULL);
+									CreateThread(NULL, 0, writetoconnect, NULL, 0, NULL);
 								}
 								else
 								{
 									//происходит ретрансляция через этот компьютер
 									memcpy(buffer, bufferread, dwReaded / 2);
 									bytestosend = dwReaded / 2;
-									writetoconnect(NULL);
+									CreateThread(NULL, 0, writetoconnect, NULL, 0, NULL);
 								}
 							}
 						}
@@ -692,17 +705,26 @@ DWORD WINAPI read(LPVOID t)
 						{
 							memcpy(buffer, bufferread, dwReaded / 2);
 							bytestosend = dwReaded / 2;
-							writetoconnect(NULL);
+							CreateThread(NULL, 0, writetoconnect, NULL, 0, NULL);
 						}
 					}
 					else if (bufferread[0] == 6)
 					{
-						buffer[0] = 5;
-						buffer[1] = bufferread[2];
-						buffer[2] = 2;
-						bytestosend = 3;
-						writetoconnect(NULL);
-						MessageBox(hWndg, L"файл открыт", L"Caption", MB_OK);
+						if (bufferread[1] == a1->getid())
+						{
+							buffer[0] = 5;
+							buffer[1] = bufferread[2];
+							buffer[2] = 2;
+							bytestosend = 3;
+							writetoconnect(NULL);
+							MessageBox(hWndg, L"файл открыт", L"Caption", MB_OK);
+						}
+						else
+						{
+							memcpy(buffer, bufferread, dwReaded / 2);
+							bytestosend = dwReaded / 2;
+							CreateThread(NULL, 0, writetoconnect, NULL, 0, NULL);
+						}
 					}
 				}
 		}
@@ -724,16 +746,17 @@ DWORD WINAPI regthread(LPVOID t)
 	CreateThread(NULL, 0, timerforreg, NULL, 0, NULL);
 	while (result == 0)
 	{
+		EscapeCommFunction(Write->reth(), CLRRTS);
+		Sleep(500);
+		EscapeCommFunction(Write->reth(), SETRTS);
+	}
+	if (result == 1)
+	{
 		buffer[0] = 1;
 		buffer[1] = 1;
 		bytestosend = 2;
-		writereg(NULL);
-		Sleep(3000);
-	}
-	while (result == 0)
-		continue;
-	if (result == 1)
-	{
+		writetoconnect(NULL);
+		Sleep(2000);
 		//регистрация прошла успешно
 		//создаем пакет жизни
 		buffer[0] = 3;
@@ -761,9 +784,7 @@ void reg()
 	}
 	else
 	{
-		//char text[31] = "Компьютер уже зарегестрирован";
 		char a;
-		//text[30]
 		a = a1->getid() + '0';
 		wchar_t* str;
 		str = convertCharArrayToLPCWSTR(&a);
