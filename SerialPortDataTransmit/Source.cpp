@@ -46,9 +46,14 @@ bool maincomputer = false;
 
 int error = 0;
 
+bool package = false;
+
 int recivestatus;
 
 char* bufferread = (char*)calloc(4000, sizeof(char));
+
+int last = 0;
+
 
 bool registration::getstatusw() { return (write); }
 void registration::openfd()
@@ -144,7 +149,7 @@ public:
 		dcbSerialParams.fDsrSensitivity = FALSE;                // отключаем восприимчивость драйвера к состоянию линии DSR
 		dcbSerialParams.ByteSize = 8;                           // задаём 8 бит в байте
 		dcbSerialParams.Parity = 1;                             // включаем проверку чётности
-		dcbSerialParams.StopBits = 0;                           // задаём один стоп-бит
+		dcbSerialParams.StopBits = 1;                           // задаём один стоп-бит
 		dcbSerialParams.fRtsControl = RTS_CONTROL_DISABLE;
 
 		SetSerialParams();
@@ -257,20 +262,6 @@ char* codder(char byte)
 	return (a);
 }
 
-void decodeanndwritetofile(char* memoery, int syze)
-{
-	int i;
-	char* temp;
-	ofstream w("./Text1.txt", fstream::out);
-	i = 0;
-	while (i < syze * 2)
-	{
-		temp = decoder(&(memoery[i]));
-		i += 2;
-		w.write(temp, 1);
-		free(temp);
-	}
-}
 
 void codebuff()
 {
@@ -403,33 +394,6 @@ DWORD WINAPI timerforreg(LPVOID t)
 	return (1);
 }
 
-DWORD WINAPI writereg(LPVOID t)
-{
-	DWORD temp, signal;
-	DWORD dwBytesWritten;
-	DWORD temp2 = 0;
-	OVERLAPPED overlapped = { 0 };
-	bool result;
-
-	overlapped.hEvent = CreateEvent(NULL, true, false, NULL);
-	if (!overlapped.hEvent)
-		MessageBox(hWndg, L"Ошибка", L"Caption", MB_OK);
-	codebuff();
-	result = WriteFile(Write->reth(), buffer, bytestosend, &temp, &overlapped);
-	while (writeperm == 1)
-	{
-		signal = WaitForSingleObject(overlapped.hEvent, INFINITY);
-		if ((signal == WAIT_OBJECT_0) && (GetOverlappedResult(Write->reth(), &overlapped, &temp2, true)))
-		{
-			if (temp2 == bytestosend)
-				return (temp2);
-			else
-				result = WriteFile(Write->reth(), buffer, bytestosend, &temp, &overlapped);
-		}
-	}
-	return -1;
-}
-
 DWORD WINAPI writetoconnect(LPVOID t)
 {
 	DWORD temp, signal;
@@ -442,9 +406,9 @@ DWORD WINAPI writetoconnect(LPVOID t)
 	if (!overlapped.hEvent)
 		MessageBox(hWndg, L"Ошибка", L"Caption", MB_OK);
 	if (buffer[0] == 3 && buffer[1] == 1)
-		Sleep(3000);
+		Sleep(4000);
 	codebuff();
-	while (writeperm == 1)
+	while (1)
 	{
 		result = WriteFile(Write->reth(), buffer, bytestosend, &temp, &overlapped);
 		signal = WaitForSingleObject(overlapped.hEvent, INFINITY);
@@ -483,6 +447,32 @@ void decodetobuff(char* memoery, int syze)
 		j++;
 	}
 }
+
+
+DWORD WINAPI writelife(LPVOID t)
+{
+	int i;
+
+	i = 0;
+	while (1)
+	{
+		i++;
+		Sleep(1000);
+		if (i == 15 && package == false)
+		{
+			memcpy(buffer, bufferforlife, bufferlifecount);
+			bytestosend = bufferlifecount;
+			writetoconnect(NULL);
+		}
+		else if (i >= 6 && package == true)
+		{
+			i = 0;
+			package = false;
+		}
+	}
+}
+
+HANDLE lifethread;
 
 DWORD WINAPI read(LPVOID t)
 {
@@ -537,12 +527,10 @@ DWORD WINAPI read(LPVOID t)
 							if (bufferread[1] == 2)
 							{
 								computerscount = 2;
-								auntification = true;
 							}
 							if (bufferread[1] == 3)
 							{
 								computerscount = 3;
-								auntification = true;
 							}
 						}
 						else
@@ -551,11 +539,11 @@ DWORD WINAPI read(LPVOID t)
 							a1->setid((int)bufferread[1] + 1);
 							// установлено соед с главным
 							//SendMessage(hWndg, WM_USER + 1, NULL, NULL);
-							
+
 							buffer[0] = 1;
 							buffer[1] = (int)bufferread[1] + 1;
 							bytestosend = 2;
-							CreateThread(NULL, 0, writetoconnect, NULL, 0, NULL);
+							writetoconnect(NULL);
 						}
 					}
 					else if (bufferread[0] == 2)
@@ -565,7 +553,7 @@ DWORD WINAPI read(LPVOID t)
 						//закрываем порты и уведомляем о разрыве соединения
 						buffer[0] = 0x02;
 						bytestosend = 1;
-						CreateThread(NULL, 0, writetoconnect, NULL, 0, NULL);
+						writetoconnect(NULL);
 						MessageBox(hWndg, L"Соединение разорвано", L"Caption", MB_OK);
 						while (b < 2)
 						{
@@ -586,10 +574,14 @@ DWORD WINAPI read(LPVOID t)
 								if (view == false)
 								{
 									SendMessage(hWndg, WM_USER, NULL, NULL);
+									//создать поток посылания файлов
 									view = true;
+									memcpy(bufferforlife, bufferread, dwReaded / 2);
+									bufferlifecount = dwReaded / 2;
+									lifethread = CreateThread(NULL, 0, writelife, NULL, 0, NULL);
 								}
+								memcpy(buffer, bufferread, dwReaded / 2);
 								bytestosend = dwReaded / 2;
-								memcpy(buffer, bufferread, bytestosend);
 							}
 							else
 							{
@@ -619,24 +611,25 @@ DWORD WINAPI read(LPVOID t)
 						}
 						else
 						{
-							bytestosend = dwReaded / 2;
 							if (view == false)
 							{
 								SendMessage(hWndg, WM_USER + 1, NULL, NULL);
 								view = true;
 							}
+							bytestosend = dwReaded / 2;
 							memcpy(buffer, bufferread, dwReaded / 2);
 						}
-						/*buffer[0] = 3;
-						bytestosend = 1;*/
 						if (catcher == 1)
 						{
+							catched = 1;
 							memcpy(bufferforlife, bufferread, dwReaded / 2);
 							bufferlifecount = dwReaded / 2;
-							catched = 1;
 						}
 						else
-							CreateThread(NULL, 0, writetoconnect, NULL, 0, NULL);
+						{
+							package = true;
+							writetoconnect(NULL);
+						}
 					}
 					else if (bufferread[0] == 4)
 					{
@@ -646,48 +639,45 @@ DWORD WINAPI read(LPVOID t)
 							buffer[1] = bufferread[1];
 							buffer[2] = 1;
 							bytestosend = 3;
-							CreateThread(NULL, 0, writetoconnect, NULL, 0, NULL);
+							writetoconnect(NULL);
 							error = 0;
 						}
 						else
 						{
-							if (catcher == 0)
+							if (bufferread[2] == a1->getid())
 							{
-								if (bufferread[2] == a1->getid())
+								//происходит прием на этот компьютер
+								//запускаем функцию записи в файл
+								//MessageBox(hWndg, L"получение файла", L"Caption", MB_OK);
+								if (bufferread[3] == 1)
 								{
-									//происходит прием на этот компьютер
-									//запускаем функцию записи в файл
-									//MessageBox(hWndg, L"получение файла", L"Caption", MB_OK);
-									if (bufferread[3] == 1)
+									if (a1->getstatusw() == false)
 									{
-										if (a1->getstatusw() == false)
-										{
-											a1->lastreciveid = bufferread[1];
-											a1->filesize = converttoint(&bufferread[4]);
-											a1->getname(bufferread + 5, a1->filesize);
-											a1->openfd();
-										}
+										a1->lastreciveid = bufferread[1];
+										a1->filesize = converttoint(&bufferread[4]);
+										a1->getname(bufferread + 5, a1->filesize);
+										a1->openfd();
 									}
-									else if (bufferread[3] == 2)
-										a1->tomassive(&(bufferread[6]), converttoint(&bufferread[4]));
-									else if (bufferread[3] == 3)
-									{
-										a1->writetofile();
-										a1->closefd();
-									}
-									buffer[0] = 5;
-									buffer[1] = bufferread[1];
-									buffer[2] = 2;
-									bytestosend = 3;
-									CreateThread(NULL, 0, writetoconnect, NULL, 0, NULL);
 								}
-								else
+								else if (bufferread[3] == 2)
+									a1->tomassive(&(bufferread[6]), converttoint(&bufferread[4]));
+								else if (bufferread[3] == 3)
 								{
-									//происходит ретрансляция через этот компьютер
-									memcpy(buffer, bufferread, dwReaded / 2);
-									bytestosend = dwReaded / 2;
-									CreateThread(NULL, 0, writetoconnect, NULL, 0, NULL);
+									a1->writetofile();
+									a1->closefd();
 								}
+								buffer[0] = 5;
+								buffer[1] = bufferread[1];
+								buffer[2] = 2;
+								bytestosend = 3;
+								writetoconnect(NULL);
+							}
+							else
+							{
+								//происходит ретрансляция через этот компьютер
+								memcpy(buffer, bufferread, dwReaded / 2);
+								bytestosend = dwReaded / 2;
+								writetoconnect(NULL);
 							}
 						}
 					}
@@ -705,7 +695,7 @@ DWORD WINAPI read(LPVOID t)
 						{
 							memcpy(buffer, bufferread, dwReaded / 2);
 							bytestosend = dwReaded / 2;
-							CreateThread(NULL, 0, writetoconnect, NULL, 0, NULL);
+							writetoconnect(NULL);
 						}
 					}
 					else if (bufferread[0] == 6)
@@ -717,13 +707,35 @@ DWORD WINAPI read(LPVOID t)
 							buffer[2] = 2;
 							bytestosend = 3;
 							writetoconnect(NULL);
-							MessageBox(hWndg, L"файл открыт", L"Caption", MB_OK);
+							MessageBox(hWndg, L"Файл открыт", L"Caption", MB_OK);
+							//CreateThread(NULL, 0, gotthefile, NULL, 0, NULL);
 						}
 						else
 						{
 							memcpy(buffer, bufferread, dwReaded / 2);
 							bytestosend = dwReaded / 2;
-							CreateThread(NULL, 0, writetoconnect, NULL, 0, NULL);
+							writetoconnect(NULL);
+						}
+					}
+					else if (bufferread[0] == 7)
+					{
+						if (maincomputer == true)
+						{
+							if (bufferread[2] == 1)
+								SuspendThread(lifethread);
+							else if (bufferread[2] == 2)
+								ResumeThread(lifethread);
+							buffer[0] = 5;
+							buffer[1] = bufferread[1];
+							buffer[2] = 1;
+							bytestosend = 3;
+							writetoconnect(NULL);
+						}
+						else
+						{
+							memcpy(buffer, bufferread, dwReaded / 2);
+							bytestosend = dwReaded / 2;
+							writetoconnect(NULL);
 						}
 					}
 				}
@@ -825,6 +837,7 @@ DWORD WINAPI fileopend(LPVOID t)
 					go = 0;
 				recivestatus = 0;
 			}
+			Sleep(2000);
 			catcher = 0;
 			catched = 0;
 			memcpy(buffer, bufferforlife, bufferlifecount);
@@ -882,8 +895,8 @@ char* extrudename(char* path)
 	return (name);
 }
 
-char* path = new char[40];
-char* file = new char[40];
+char* path = new char[255];
+char* file = new char[255];
 
 
 void setFileName(wchar_t* filePath) {
@@ -945,7 +958,7 @@ DWORD WINAPI transmitionrun(LPVOID t)
 	int nowtowrite = 0;
 	int strsize = 0;
 	int readed = 0;
-	int idofrecivingcomp = 2;
+	int idofrecivingcomp = 1;
 	char* tempsize;
 
 
@@ -980,6 +993,7 @@ DWORD WINAPI transmitionrun(LPVOID t)
 	namelen = strlen(name);
 	while (recivestatus != 2)
 	{
+		recivestatus = 0;
 		buffer[0] = 4;
 		buffer[1] = a1->getid();
 		buffer[2] = idofrecivingcomp;
@@ -994,10 +1008,10 @@ DWORD WINAPI transmitionrun(LPVOID t)
 		while (recivestatus == 0)
 			continue;
 	}
-	recivestatus = 0;
 	go = 1;
 	while (i < strsize)
 	{
+		recivestatus = 0;
 		//MessageBox(hWndg, L"отправка куска", L"Caption", MB_OK);
 		buffer[0] = 4;
 		buffer[1] = a1->getid();
@@ -1025,7 +1039,6 @@ DWORD WINAPI transmitionrun(LPVOID t)
 			go = 1;
 		else
 			go = 0;
-		recivestatus = 0;
 	}
 	catcher = 0;
 	catched = 0;
@@ -1035,6 +1048,7 @@ DWORD WINAPI transmitionrun(LPVOID t)
 	buffer[3] = 3;
 	bytestosend = 4;
 	writetoconnect(NULL);
+	Sleep(250);
 	memcpy(buffer, bufferforlife, bufferlifecount);
 	bytestosend = bufferlifecount;
 	writetoconnect(NULL);
