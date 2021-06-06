@@ -605,8 +605,8 @@ DWORD WINAPI read(LPVOID t)
 									bufferread[1] = 1;
 								if (view == false)
 								{
-									computerscount = bufferread[2];
-									if (computerscount >= 2)
+									a1->countofcomputers = bufferread[2];
+									if (a1->countofcomputers >= 2)
 									{
 										a1->user[0].id = 1;
 										a1->user[0].namelen = bufferread[4];
@@ -617,7 +617,7 @@ DWORD WINAPI read(LPVOID t)
 										a1->user[1].name = (char*)calloc(bufferread[5 + bufferread[4] + 1], sizeof(char));
 										memcpy(a1->user[1].name, bufferread + 5 + bufferread[4] + 2, bufferread[5 + bufferread[4] + 1]);
 									}
-									if (computerscount == 3)
+									if (a1->countofcomputers == 3)
 									{
 										a1->user[2].id = 3;
 										a1->user[2].name = (char*)calloc(bufferread[5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1] + 1], sizeof(char));
@@ -661,25 +661,25 @@ DWORD WINAPI read(LPVOID t)
 						{
 							if (view == false)
 							{
-								computerscount = bufferread[2];
-								if (computerscount >= 2)
-								{
-									a1->user[0].id = 1;
-									a1->user[0].namelen = bufferread[4];
-									a1->user[0].name = (char*)calloc(bufferread[4], sizeof(char));
-									memcpy(a1->user[0].name, &(bufferread[5]), bufferread[4]);
-									a1->user[1].id = 2;
-									a1->user[1].namelen = bufferread[5 + bufferread[4] + 1];
-									a1->user[1].name = (char*)calloc(bufferread[5 + bufferread[4] + 1], sizeof(char));
-									memcpy(a1->user[1].name, bufferread + 5 + bufferread[4] + 2, bufferread[5 + bufferread[4] + 1]);
-								}
-								if (computerscount == 3)
-								{
-									a1->user[2].id = 3;
-									a1->user[2].name = (char*)calloc(bufferread[5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1] + 1], sizeof(char));
-									a1->user[2].namelen = bufferread[5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1] + 1];
-									memcpy(a1->user[2].name, bufferread + 5 + bufferread[4] + 2 + bufferread[4 + bufferread[4] + 1] + 2, bufferread[5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1] + 1]);
-								}
+								a1->countofcomputers = bufferread[2];
+									if (a1->countofcomputers >= 2)
+									{
+										a1->user[0].id = 1;
+										a1->user[0].namelen = bufferread[4];
+										a1->user[0].name = (char*)calloc(bufferread[4], sizeof(char));
+										memcpy(a1->user[0].name, &(bufferread[5]), bufferread[4]);
+										a1->user[1].id = 2;
+										a1->user[1].namelen = bufferread[5 + bufferread[4] + 1];
+										a1->user[1].name = (char*)calloc(bufferread[5 + bufferread[4] + 1], sizeof(char));
+										memcpy(a1->user[1].name, bufferread + 5 + bufferread[4] + 2, bufferread[5 + bufferread[4] + 1]);
+									}
+									if (a1->countofcomputers == 3)
+									{
+										a1->user[2].id = 3;
+										a1->user[2].name = (char*)calloc(bufferread[5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1] + 1], sizeof(char));
+										a1->user[2].namelen = bufferread[5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1] + 1];
+										memcpy(a1->user[2].name, bufferread + 5 + bufferread[4] + 2 + bufferread[4 + bufferread[4] + 1] + 2, bufferread[5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1] + 1]);
+									}
 								SendMessage(hWndg, WM_USER + 1, NULL, NULL);
 								view = true;
 							}
@@ -1007,6 +1007,13 @@ char* converttobyte(int size)
 	return (syze);
 }
 
+int idofrecivingcomp;
+
+void setidtosend(int id)
+{
+	idofrecivingcomp = id;
+}
+
 DWORD WINAPI transmitionrun(LPVOID t)
 {
 	char* name;
@@ -1022,7 +1029,6 @@ DWORD WINAPI transmitionrun(LPVOID t)
 	int nowtowrite = 0;
 	int strsize = 0;
 	int readed = 0;
-	int idofrecivingcomp = 1;
 	char* tempsize;
 
 

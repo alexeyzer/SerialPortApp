@@ -353,9 +353,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			if (nicknameCounter > 0) {
 				handle.changeCurrentView(CONNECT_USING_SELECTEDCOMPORTS_VIEW, sendingComport, receivingComport);
 				for (int i = nicknameCounter; i < 6; i++) {
-					userNickname[i] = '\0';
+					userNickname[i] = ' ';
 				}
-				
+				userNickname[5] = '\0';
 				handle.createChooseOneList(550);
 				handle.addValueToList("Connect as main");
 				handle.addValueToList("Подключиться");

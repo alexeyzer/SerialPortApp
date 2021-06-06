@@ -15,6 +15,7 @@ void testflag();
 void setFileName(wchar_t* filePath);
 void setPath(wchar_t* filePath);
 void openfile();
+void setidtosend(int id);
 
 struct users
 {

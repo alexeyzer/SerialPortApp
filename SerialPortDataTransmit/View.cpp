@@ -336,7 +336,7 @@ void ViewHandler::changeCurrentView(int newView,const char* param1,const char* p
 			addPC(nickname, a->user[i].namelen, a->user[i].id);
 		}
 		changeColorToSmooth(0, 0, 1);
-		updateMessage(TEXT("Connected"), 10);
+		updateMessage(TEXT("Connected as main"), 18);
 		pcSelector = true;
 		DrawPCPortImages = true;
 	}
