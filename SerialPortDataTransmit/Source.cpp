@@ -54,6 +54,8 @@ char* bufferread = (char*)calloc(4000, sizeof(char));
 
 int last = 0;
 
+bool table = false;
+
 
 bool registration::getstatusw() { return (write); }
 void registration::openfd()
@@ -197,6 +199,17 @@ public:
 };
 
 Comport* Read, * Write;
+
+char* namebyid(int id)
+{
+	return (a1->user[id - 1].name);
+}
+
+int lenbyid(int id)
+{
+	return (a1->user[id - 1].namelen);
+}
+
 
 char* decoder(char* bytes)
 {
@@ -448,6 +461,28 @@ void decodetobuff(char* memoery, int syze)
 	}
 }
 
+void messageboxidname(char *name, int len, const char *text)
+{
+	wchar_t* str;
+	int newsize;
+	char* newstr;
+
+	newsize = strlen(text + len + 1);
+	newstr = (char*)calloc(newsize, sizeof(char));
+	memcpy(newstr, text, strlen(text));
+	newstr[strlen(text)] = ' ';
+	memcpy(newstr + strlen(text) + 1, name, len);
+
+	str = convertCharArrayToLPCWSTR(newstr);
+	MessageBox(hWndg, str, L"Caption", MB_OK);
+	delete(str);
+	free(newstr);
+}
+
+registration* returner(void)
+{
+	return (a1);
+}
 
 DWORD WINAPI writelife(LPVOID t)
 {
@@ -537,9 +572,6 @@ DWORD WINAPI read(LPVOID t)
 						{
 
 							a1->setid((int)bufferread[1] + 1);
-							// установлено соед с главным
-							//SendMessage(hWndg, WM_USER + 1, NULL, NULL);
-
 							buffer[0] = 1;
 							buffer[1] = (int)bufferread[1] + 1;
 							bytestosend = 2;
@@ -573,6 +605,25 @@ DWORD WINAPI read(LPVOID t)
 									bufferread[1] = 1;
 								if (view == false)
 								{
+									computerscount = bufferread[2];
+									if (computerscount >= 2)
+									{
+										a1->user[0].id = 1;
+										a1->user[0].namelen = bufferread[4];
+										a1->user[0].name = (char*)calloc(bufferread[4], sizeof(char));
+										memcpy(a1->user[0].name, &(bufferread[5]), bufferread[4]);
+										a1->user[1].id = 2;
+										a1->user[1].namelen = bufferread[5 + bufferread[4] + 1];
+										a1->user[1].name = (char*)calloc(bufferread[5 + bufferread[4] + 1], sizeof(char));
+										memcpy(a1->user[1].name, bufferread + 5 + bufferread[4] + 2, bufferread[5 + bufferread[4] + 1]);
+									}
+									if (computerscount == 3)
+									{
+										a1->user[2].id = 3;
+										a1->user[2].name = (char*)calloc(bufferread[5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1] + 1], sizeof(char));
+										a1->user[2].namelen = bufferread[5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1] + 1];
+										memcpy(a1->user[2].name, bufferread + 5 + bufferread[4] + 2 + bufferread[4 + bufferread[4] + 1] + 2, bufferread[5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1] + 1]);
+									}
 									SendMessage(hWndg, WM_USER, NULL, NULL);
 									//создать поток посылания файлов
 									view = true;
@@ -613,6 +664,25 @@ DWORD WINAPI read(LPVOID t)
 						{
 							if (view == false)
 							{
+								computerscount = bufferread[2];
+								if (computerscount >= 2)
+								{
+									a1->user[0].id = 1;
+									a1->user[0].namelen = bufferread[4];
+									a1->user[0].name = (char*)calloc(bufferread[4], sizeof(char));
+									memcpy(a1->user[0].name, &(bufferread[5]), bufferread[4]);
+									a1->user[1].id = 2;
+									a1->user[1].namelen = bufferread[5 + bufferread[4] + 1];
+									a1->user[1].name = (char*)calloc(bufferread[5 + bufferread[4] + 1], sizeof(char));
+									memcpy(a1->user[1].name, bufferread + 5 + bufferread[4] + 2, bufferread[5 + bufferread[4] + 1]);
+								}
+								if (computerscount == 3)
+								{
+									a1->user[2].id = 3;
+									a1->user[2].name = (char*)calloc(bufferread[5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1] + 1], sizeof(char));
+									a1->user[2].namelen = bufferread[5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1] + 1];
+									memcpy(a1->user[2].name, bufferread + 5 + bufferread[4] + 2 + bufferread[4 + bufferread[4] + 1] + 2, bufferread[5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1] + 1]);
+								}
 								SendMessage(hWndg, WM_USER + 1, NULL, NULL);
 								view = true;
 							}
@@ -707,7 +777,8 @@ DWORD WINAPI read(LPVOID t)
 							buffer[2] = 2;
 							bytestosend = 3;
 							writetoconnect(NULL);
-							MessageBox(hWndg, L"Файл открыт", L"Caption", MB_OK);
+							//MessageBox(hWndg, L"Файл открыт пользователем", L"Caption", MB_OK);
+							messageboxidname(namebyid(bufferread[2]), lenbyid(bufferread[2]), "Файл открыт пользователем");
 							//CreateThread(NULL, 0, gotthefile, NULL, 0, NULL);
 						}
 						else

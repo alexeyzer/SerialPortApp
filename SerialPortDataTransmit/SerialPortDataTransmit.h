@@ -20,7 +20,9 @@ struct users
 {
 	int id;
 	char* name = NULL;
+	int namelen = 0;
 };
+
 
 class registration
 {
@@ -38,6 +40,8 @@ public:
 	bool status;
 	int  lastreciveid = 0;
 	char* username = NULL;
+	int countofcomputers = 0;
+	users user[3];
 	registration(bool major, char *comtowrite, char *comtoread);
 	void close();
 	void setid(int a);
@@ -48,5 +52,7 @@ public:
 	void writetofile();
 	void closefd();
 	void tomassive(char* source, int len);
-
+	void setname(char* name);
 };
+
+registration* returner(void);
