@@ -64,6 +64,7 @@ public:
 	size_t getActiveListItemID();
 	void updateNickname(char* name, size_t len);
 	size_t getSelectedPC();
+	int getCurrentPosY();
 	void addPC(LPCWSTR nickname, uint16_t length, uint16_t id);
 	void DeleteItemFromList(size_t itemID);
 	const char* getActiveListItemText();

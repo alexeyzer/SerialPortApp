@@ -640,8 +640,8 @@ DWORD WINAPI read(LPVOID t)
 								if (bufferread[2] == 1)
 								{
 									bufferread[5 + bufferread[4]] = a1->getid();
-									bufferread[5 + bufferread[4] + 1] = strlen(a1->username);
-									memcpy(bufferread + 5 + bufferread[4] + 2, a1->username, strlen(a1->username));
+									bufferread[5 + bufferread[4] + 1] = 6;
+									memcpy(bufferread + 5 + bufferread[4] + 2, a1->username, 6);
 									bufferread[2] = 2;
 									bytestosend = 5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1];
 									memcpy(buffer, bufferread, bytestosend);
@@ -649,9 +649,9 @@ DWORD WINAPI read(LPVOID t)
 								else if (bufferread[2] == 2)
 								{
 									bufferread[5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1]] = a1->getid();
-									bufferread[5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1] + 1] = strlen(a1->username);
-									memcpy(bufferread + 5 + bufferread[4] + 2 + bufferread[4 + bufferread[4] + 1] + 2, a1->username, strlen(a1->username));
-									bytestosend = 5 + bufferread[4] + 2 + bufferread[4 + bufferread[4] + 1] + 2 + bufferread[5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1] + 1];
+									bufferread[5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1] + 1] = 6;
+									memcpy(bufferread + 5 + bufferread[4] + 2 + bufferread[4 + bufferread[4] + 1] + 2, a1->username, 6);
+									bytestosend = 5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1] + 2 + bufferread[5 + bufferread[4] + 2 + bufferread[5 + bufferread[4] + 1] + 1];
 									bufferread[2] = 3;
 									memcpy(buffer, bufferread, bytestosend);
 								}
@@ -839,8 +839,8 @@ DWORD WINAPI regthread(LPVOID t)
 		buffer[1] = 0;
 		buffer[2] = 1;
 		buffer[3] = a1->getid();
-		buffer[4] = strlen(a1->username);
-		memcpy(buffer + 5, a1->username, strlen(a1->username));
+		buffer[4] = 6;
+		memcpy(buffer + 5, a1->username, 6);
 		bytestosend = 5 + strlen(a1->username);
 		writetoconnect(NULL);
 	}

@@ -119,8 +119,19 @@ void StartTransition() {
 	}
 }
 
+int currentPosX;
+int currentPosY;
+
+
+int ViewHandler::getCurrentPosY() {
+	return currentPosY;
+}
+
 void ViewHandler::sendMousePos(int posX, int posY)
 {
+	currentPosX = posX; 
+	currentPosY = posY;
+
 	if (chooseOneList == true) {
 		if (posX > 300 && posX < 300+StrokeWidth) {
 			size_t pos = (posY - xOffset) / 60;
@@ -143,6 +154,8 @@ void ViewHandler::sendMousePos(int posX, int posY)
 		}
 	}
 }
+
+
 
 void ViewHandler::createChooseOneList(int posX)
 {
@@ -250,6 +263,10 @@ void ShowImage(HDC hdc,int posX, int posY, HBITMAP Image, int sizeX, int sizeY) 
 
 HBITMAP PcImage;
 
+
+std::vector<std::tuple<LPCWSTR, uint16_t, uint16_t>> PCTable(10);
+size_t PCAmount = 0;
+
 void LoadPcImage() {
 	PcImage = (HBITMAP)LoadImageW(NULL, L"PCIcon.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 
@@ -322,6 +339,7 @@ void ViewHandler::changeCurrentView(int newView,const char* param1,const char* p
 			nickname = convertCharArrayToLPCWSTR(a->user[i].name);
 			addPC(nickname, a->user[i].namelen, a->user[i].id);
 		}
+		PCAmount = a->countofcomputers;
 		changeColorToSmooth(0, 0, 1);
 		updateMessage(TEXT("Connected"), 10);
 		pcSelector = true;
@@ -392,8 +410,6 @@ void ViewHandler::updateMessage(const wchar_t* text, size_t length) {
 
 
 
-std::vector<std::tuple<LPCWSTR, uint16_t, uint16_t>> PCTable(10);
-size_t PCAmount = 0;
 
 void ViewHandler::addPC(LPCWSTR nickname,uint16_t length, uint16_t id)
 {
@@ -401,6 +417,8 @@ void ViewHandler::addPC(LPCWSTR nickname,uint16_t length, uint16_t id)
 	PCTable[PCAmount] = newPC;
 	PCAmount++;
 }
+
+
 
 void showPCS(HDC bufferDCreDraw) {
 	switch (selectedPC) {
@@ -428,7 +446,7 @@ void showPCS(HDC bufferDCreDraw) {
 		rect.left = 66 + (i * 234);
 		rect.right = rect.left + 200;
 		rect.bottom = rect.top + 100;
-		DrawTextW(bufferDCreDraw, std::get<0>(PCTable[i]), 6, &rect , DT_CENTER);
+		DrawTextW(bufferDCreDraw, std::get<0>(PCTable[i]), std::get<1>(PCTable[i]), &rect , DT_CENTER);
 		// TextOut(bufferDCreDraw, 66 + (i * 234), 420, std::get<0>(PCTable[i]),6);
 	}
 }

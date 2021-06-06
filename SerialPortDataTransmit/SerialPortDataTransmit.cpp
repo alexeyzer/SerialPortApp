@@ -352,10 +352,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			inputNickname = false;
 			if (nicknameCounter > 0) {
 				handle.changeCurrentView(CONNECT_USING_SELECTEDCOMPORTS_VIEW, sendingComport, receivingComport);
-				for (int i = nicknameCounter; i < 6; i++) {
-					userNickname[i] = ' ';
-				}
-				userNickname[5] = '\0';
+				
+				userNickname[nicknameCounter+1] = '\0';
 				handle.createChooseOneList(550);
 				handle.addValueToList("Connect as main");
 				handle.addValueToList("Подключиться");
@@ -406,31 +404,45 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		case CONNECT_SUCCESS_VIEW: 
 		{
-			switch (handle.getActiveListItemID()) {
-			case SEND_FILE_CHOICE:
-			{
-				open_file(hWnd, fileName);
-				setFileName(fileName);
-				if (fileChosen) {
-					transmition();
+			if (handle.getCurrentPosY() > 550) {
+				switch (handle.getActiveListItemID()) {
+				case SEND_FILE_CHOICE:
+				{
+					open_file(hWnd, fileName);
+					setFileName(fileName);
+					if (fileChosen) {
+
+						transmition();
+					}
+					else {
+						MessageBox(hWnd, L"Ошибка", L"Файл для отправки не выбран", MB_OK);
+					}
+				}
+				break;
+				case OPEN_DIR_CHOICE:
+				{
+					open_path(hWnd, downloadDir);
+					setPath(downloadDir);
+				}
+				break;
+				case OPEN_FILE_CHOICE:
+				{
+					openfile();
+				}
+				break;
+
+				}
+			}
+			else {
+				int d = handle.getSelectedPC();
+				registration* a = returner();
+				int id = a->getid();
+				if (id == d) {
+					MessageBox(hWnd, L"Нельзя выбрать свой компьютер", L"Нельзя выбрать свой компьютер", MB_OK);
 				}
 				else {
-					MessageBox(hWnd, L"Ошибка", L"Файл для отправки не выбран", MB_OK);
+					setidtosend(handle.getSelectedPC());
 				}
-			}
-			break;
-			case OPEN_DIR_CHOICE:
-			{
-				open_path(hWnd,downloadDir);
-				setPath(downloadDir);
-			}
-			break;
-			case OPEN_FILE_CHOICE:
-			{
-				openfile();
-			}
-			break;
-
 			}
 		}
 		break;
@@ -446,7 +458,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 		if ((wParam > 0x30 && wParam < 0x5A) && inputNickname) {
 			if (nicknameCounter > 5) {
-				MessageBox(hWnd, L"пошёл нахуй", L"тварь", MB_OK);
+				MessageBox(hWnd, L"Никнейм не может быть", L"больше 6 символов", MB_OK);
 			}
 			else {
 				userNickname[nicknameCounter] = (char)wParam;
