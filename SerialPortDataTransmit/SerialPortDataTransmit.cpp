@@ -355,6 +355,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				for (int i = nicknameCounter; i < 6; i++) {
 					userNickname[i] = ' ';
 				}
+				
 				handle.createChooseOneList(550);
 				handle.addValueToList("Connect as main");
 				handle.addValueToList("Подключиться");
@@ -374,6 +375,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			case CONNECT_AS_MAIN:
 			{
 				reg();
+
 			}
 			break;
 			case CONNECT_AS_USUAL:
@@ -381,6 +383,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			break;
 			}
+			registration* a = returner();
+			a->username = (char*)malloc(sizeof(char) * 6);
+			memcpy(a->username, userNickname, 6);
 			handle.changeCurrentView(CONNECTING_VIEW, userNickname, NULL);
 			
 		}

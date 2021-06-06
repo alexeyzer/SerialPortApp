@@ -3,6 +3,7 @@
 #include "View.h"
 #include <string>
 #include <vector>
+#include "SerialPortDataTransmit.h"
 
 #define M_PI 3.1415926535897931084
 #define GRADIENT_CHANGE_STEPS 1000
@@ -316,8 +317,11 @@ void ViewHandler::changeCurrentView(int newView,const char* param1,const char* p
 	break;
 	case CONNECT_SUCCESS_VIEW:
 	{
-		nickname = convertCharArrayToLPCWSTR(param1);
-		addPC(nickname, 10, 1);
+		registration* a = returner();
+		for (int i = 0; i < a->countofcomputers; i++) {
+			nickname = convertCharArrayToLPCWSTR(a->user[i].name);
+			addPC(nickname, a->user[i].namelen, a->user[i].id);
+		}
 		changeColorToSmooth(0, 0, 1);
 		updateMessage(TEXT("Connected"), 10);
 		pcSelector = true;

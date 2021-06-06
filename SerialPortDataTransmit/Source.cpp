@@ -636,10 +636,7 @@ DWORD WINAPI read(LPVOID t)
 							}
 							else
 							{
-								a1->username = (char*)malloc(sizeof(char) * 3);
-								a1->username[0] = 'a';
-								a1->username[1] = 'l';
-								a1->username[2] = '\0';
+								
 								if (bufferread[2] == 1)
 								{
 									bufferread[5 + bufferread[4]] = a1->getid();
@@ -822,10 +819,6 @@ DWORD WINAPI regthread(LPVOID t)
 	maincomputer = true;
 	int temp = 0;
 	a1->setid(1);
-	a1->username = (char*)malloc(sizeof(char) * 3);
-	a1->username[0] = 'a';
-	a1->username[1] = 'l';
-	a1->username[2] = '\0';
 	CreateThread(NULL, 0, timerforreg, NULL, 0, NULL);
 	while (result == 0)
 	{
