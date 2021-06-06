@@ -26,6 +26,22 @@ int StrokeWidth = 200;
 const wchar_t * message = TEXT("fuck me\0");
 size_t messageLength = 0;
 
+
+wchar_t* nickname= new wchar_t[100];
+size_t nicknameLength = 0;
+bool showNickname = false;
+
+
+void ViewHandler::updateNickname(char* name,size_t len)
+{
+	nicknameLength = len;
+	// convertCharArrayToLPCWSTR(name);
+	
+	MultiByteToWideChar(CP_ACP, 0, name, -1, nickname,len);
+	nickname[len] = '\0';
+	int a = 0;
+}
+
 DWORD WINAPI changeColorProc(LPVOID t) {
 	COLORCHANGEFLAG = true;
 	std::tuple<double,double,double>* wantedColor = static_cast<std::tuple<double, double, double>*>(t);
@@ -62,7 +78,9 @@ void ViewHandler::changeStatusToRainbow() {
 	changeColorToSmooth(1, 1, 1);
 }
 
-
+bool pcSelector = false;
+size_t pcAmount = 3;
+size_t selectedPC = 1;
 
 
 std::vector<std::string> listArray(256);
@@ -110,6 +128,17 @@ void ViewHandler::sendMousePos(int posX, int posY)
 			}
 			
 			changeActiveListItemTo(pos+1);
+		}
+	}
+	if (pcSelector == true) {
+		if (posX > 66 && posY < 400) {
+			selectedPC = 1;
+		}
+		if (posX > 300 && posY < 400) {
+			selectedPC = 2;
+		}
+		if (posX > 533 && posY < 400) {
+			selectedPC = 3;
 		}
 	}
 }
@@ -202,7 +231,6 @@ void LoadSerialPortImage() {
 	}
 }
 
-
 void ShowImage(HDC hdc,int posX, int posY, HBITMAP Image, int sizeX, int sizeY) {
 	
 	// LoadSerialPortImage();
@@ -243,8 +271,9 @@ void LoadBackgroundImage() {
 	}
 }
 
-
-
+size_t ViewHandler::getSelectedPC() {
+	return selectedPC;
+}
 
 wchar_t *comportSending;
 wchar_t *comportReceiving;
@@ -267,6 +296,7 @@ void ViewHandler::changeCurrentView(int newView,const char* param1,const char* p
 	break;
 	case CONNECT_USING_SELECTEDCOMPORTS_VIEW:
 	{
+		showNickname = false;
 		comportSending = convertCharArrayToLPCWSTR(param1);
 		comportReceiving = convertCharArrayToLPCWSTR(param2);
 		updateMessage(TEXT("Selected comports"), 19);
@@ -286,16 +316,29 @@ void ViewHandler::changeCurrentView(int newView,const char* param1,const char* p
 	break;
 	case CONNECT_SUCCESS_VIEW:
 	{
+		nickname = convertCharArrayToLPCWSTR(param1);
+		addPC(nickname, 10, 1);
 		changeColorToSmooth(0, 0, 1);
 		updateMessage(TEXT("Connected"), 10);
+		pcSelector = true;
 		DrawPCPortImages = true;
 	}
 	break;
 	case CONNECT_SUCCESS_VIEW_MAIN:
 	{
+		nickname = convertCharArrayToLPCWSTR(param1);
+		addPC(nickname, 10, 1);
 		changeColorToSmooth(0, 0, 1);
 		updateMessage(TEXT("Connected as main"), 18);
+		pcSelector = true;
 		DrawPCPortImages = true;
+	}
+	break;
+	case INPUTNICKNAME_VIEW:
+	{
+		showNickname = true;
+		changeColorToSmooth(0, 1, 1);
+		updateMessage(TEXT("Введите имя компьютера"), 23);
 	}
 	break;
 	case CONNECT_FAILURE_VIEW:
@@ -306,6 +349,8 @@ void ViewHandler::changeCurrentView(int newView,const char* param1,const char* p
 	}
 	currentView = newView;
 }
+
+
 
 ViewHandler::ViewHandler() {
 	
@@ -335,6 +380,50 @@ ViewHandler::ViewHandler(HWND hWnd, COLORREF backgroundColor,
 void ViewHandler::updateMessage(const wchar_t* text, size_t length) {
 	message = text;
 	messageLength = length;
+}
+
+
+
+
+std::vector<std::tuple<LPCWSTR, uint16_t, uint16_t>> PCTable(10);
+size_t PCAmount = 0;
+
+void ViewHandler::addPC(LPCWSTR nickname,uint16_t length, uint16_t id)
+{
+	std::tuple<LPCWSTR, uint16_t, uint16_t> newPC {nickname,length, id};
+	PCTable[PCAmount] = newPC;
+	PCAmount++;
+}
+
+void showPCS(HDC bufferDCreDraw) {
+	switch (selectedPC) {
+	case 1:
+	{
+		if(PCAmount>0)	Rectangle(bufferDCreDraw, 56, 190, 276, 410);
+	}
+	break;
+	case 2:
+	{
+		if (PCAmount > 1) Rectangle(bufferDCreDraw, 290, 190, 510, 410);
+	}
+	break;
+	case 3:
+	{
+		if (PCAmount > 2) Rectangle(bufferDCreDraw, 523, 190, 743, 410);
+	}
+	break;
+
+	}
+	for (int i = 0; i < PCAmount; i++) {
+		ShowImage(bufferDCreDraw, 66+(i*234), 200, PcImage, 200, 200);
+		RECT rect;
+		rect.top = 420;
+		rect.left = 66 + (i * 234);
+		rect.right = rect.left + 200;
+		rect.bottom = rect.top + 100;
+		DrawTextW(bufferDCreDraw, std::get<0>(PCTable[i]), 6, &rect , DT_CENTER);
+		// TextOut(bufferDCreDraw, 66 + (i * 234), 420, std::get<0>(PCTable[i]),6);
+	}
 }
 
 
@@ -390,11 +479,11 @@ DWORD WINAPI continueDrawLoop(LPVOID t) {
 				TextOut(bufferDCreDraw, 150, 400, comportSending, 5);
 				TextOut(bufferDCreDraw, 550, 400, comportReceiving, 5);
 			}
-
+			if (showNickname) {
+				TextOut(bufferDCreDraw, 400-(nicknameLength*13), 300, nickname, nicknameLength);
+			}
 			if (DrawPCPortImages) {
-				ShowImage(bufferDCreDraw, 66, 200, PcImage, 200, 200);
-				ShowImage(bufferDCreDraw, 300, 200, PcImage, 200, 200);
-				ShowImage(bufferDCreDraw, 533, 200, PcImage, 200, 200);
+				showPCS(bufferDCreDraw);
 			}
 			
 			HPEN pen = CreatePen(PS_SOLID, 3, RGB(

@@ -219,6 +219,10 @@ Logger logger;
 
 ViewHandler handle;
 
+bool inputNickname = false;
+char* userNickname = new char[6];
+int nicknameCounter = 0;
+
 char* receivingComport = new char[6];
 char* sendingComport = new char[6];
 
@@ -280,7 +284,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
 	case WM_USER:
 	{
-		handle.changeCurrentView(CONNECT_SUCCESS_VIEW_MAIN, NULL, NULL);
+		handle.changeCurrentView(CONNECT_SUCCESS_VIEW_MAIN, userNickname, NULL);
 		handle.deleteChooseOneList();
 		handle.createChooseOneList(550);
 		handle.addValueToList("Отправить");
@@ -290,7 +294,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	break;
 	case WM_USER+1:
 	{
-		handle.changeCurrentView(CONNECT_SUCCESS_VIEW, NULL, NULL);
+		handle.changeCurrentView(CONNECT_SUCCESS_VIEW, userNickname, NULL);
 		handle.deleteChooseOneList();
 		handle.createChooseOneList(550);
 		handle.addValueToList("Отправить");
@@ -338,12 +342,28 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case CHOOSECOMPORT_SENDING_VIEW:
 		{
 			memcpy(sendingComport, handle.getActiveListItemText(), 7);
-			handle.changeCurrentView(CONNECT_USING_SELECTEDCOMPORTS_VIEW, sendingComport, receivingComport);
+			handle.changeCurrentView(INPUTNICKNAME_VIEW, NULL, NULL);
+			inputNickname = true;
 			handle.deleteChooseOneList();
-			handle.createChooseOneList(550);
-			handle.addValueToList("Connect as main");
-			handle.addValueToList("Подключиться");
-
+		}
+		break;
+		case INPUTNICKNAME_VIEW: 
+		{
+			inputNickname = false;
+			if (nicknameCounter > 0) {
+				handle.changeCurrentView(CONNECT_USING_SELECTEDCOMPORTS_VIEW, sendingComport, receivingComport);
+				for (int i = nicknameCounter; i < 6; i++) {
+					userNickname[i] = ' ';
+				}
+				handle.createChooseOneList(550);
+				handle.addValueToList("Connect as main");
+				handle.addValueToList("Подключиться");
+			}
+			else {
+				MessageBox(hWnd, L"Никнейм не может быть пустым", L"Укажите никнейм и повторите попытку", MB_OK);
+				handle.changeCurrentView(INPUTNICKNAME_VIEW, NULL, NULL);
+				inputNickname = true;
+			}
 		}
 		break;
 		case CONNECT_USING_SELECTEDCOMPORTS_VIEW:
@@ -361,13 +381,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			break;
 			}
-			handle.changeCurrentView(CONNECTING_VIEW, NULL, NULL);
+			handle.changeCurrentView(CONNECTING_VIEW, userNickname, NULL);
 			
 		}
 		break;
 		case CONNECTING_VIEW:
 		{
-			handle.changeCurrentView(CONNECT_SUCCESS_VIEW, NULL, NULL);
+			handle.changeCurrentView(CONNECT_SUCCESS_VIEW, userNickname, NULL);
 			handle.deleteChooseOneList();
 			handle.createChooseOneList(550);
 			handle.addValueToList("Отправить");
@@ -419,6 +439,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
 	case WM_KEYDOWN:
 	{
+		if ((wParam > 0x30 && wParam < 0x5A) && inputNickname) {
+			if (nicknameCounter > 5) {
+				MessageBox(hWnd, L"пошёл нахуй", L"тварь", MB_OK);
+			}
+			else {
+				userNickname[nicknameCounter] = (char)wParam;
+				nicknameCounter++;
+				handle.updateNickname(userNickname, nicknameCounter);
+			}	
+		}
+		if (wParam == VK_BACK && inputNickname) {
+			nicknameCounter--;
+			handle.updateNickname(userNickname, nicknameCounter);
+		}
 		switch (wParam)
 		{
 			case VK_UP:

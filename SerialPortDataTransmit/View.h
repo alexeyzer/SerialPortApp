@@ -4,6 +4,7 @@
 #include <math.h>
 #include <tuple>
 #include "Source.h"
+#include <string>
 
 #define COLOR_RED RGB(255,0,0)
 #define COLOR_BLUE RGB(0,0,255)
@@ -28,7 +29,7 @@
 #define CHOOSE_FILE_VIEW 8
 #define CHOOSE_DIR_VIEW 9
 #define CONNECTED_VIEW 10
-
+#define INPUTNICKNAME_VIEW 13
 
 #define SEND_FILE_CHOICE 1
 #define OPEN_DIR_CHOICE 2
@@ -61,6 +62,9 @@ public:
 	void changeActiveListItemTo(size_t pos);
 	void sendMousePos(int posX, int posY);
 	size_t getActiveListItemID();
+	void updateNickname(char* name, size_t len);
+	size_t getSelectedPC();
+	void addPC(LPCWSTR nickname, uint16_t length, uint16_t id);
 	void DeleteItemFromList(size_t itemID);
 	const char* getActiveListItemText();
 };
