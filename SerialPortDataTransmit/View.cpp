@@ -330,10 +330,13 @@ void ViewHandler::changeCurrentView(int newView,const char* param1,const char* p
 	break;
 	case CONNECT_SUCCESS_VIEW_MAIN:
 	{
-		nickname = convertCharArrayToLPCWSTR(param1);
-		addPC(nickname, 10, 1);
+		registration* a = returner();
+		for (int i = 0; i < a->countofcomputers; i++) {
+			nickname = convertCharArrayToLPCWSTR(a->user[i].name);
+			addPC(nickname, a->user[i].namelen, a->user[i].id);
+		}
 		changeColorToSmooth(0, 0, 1);
-		updateMessage(TEXT("Connected as main"), 18);
+		updateMessage(TEXT("Connected"), 10);
 		pcSelector = true;
 		DrawPCPortImages = true;
 	}

@@ -353,7 +353,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			if (nicknameCounter > 0) {
 				handle.changeCurrentView(CONNECT_USING_SELECTEDCOMPORTS_VIEW, sendingComport, receivingComport);
 				for (int i = nicknameCounter; i < 6; i++) {
-					userNickname[i] = ' ';
+					userNickname[i] = '\0';
 				}
 				
 				handle.createChooseOneList(550);
