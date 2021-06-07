@@ -585,7 +585,12 @@ DWORD WINAPI read(LPVOID t)
 						buffer[0] = 0x02;
 						bytestosend = 1;
 						writetoconnect(NULL);
-						MessageBox(hWndg, L"Соединение разорвано", L"Caption", MB_OK);
+						// MessageBox(hWndg, L"Соединение разорвано", L"Caption", MB_OK);
+						SendMessage(hWndg, WM_USER + 2, NULL, NULL);
+
+						//check
+
+
 						while (b < 2)
 						{
 							Sleep(1000);

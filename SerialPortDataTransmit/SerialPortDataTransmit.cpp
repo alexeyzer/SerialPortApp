@@ -302,6 +302,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		handle.addValueToList("Открыть файл");
 	}
 	break;
+	case WM_USER + 2:
+	{
+		handle.changeCurrentView(CONNECT_FAILURE_VIEW, userNickname, NULL);
+		handle.deleteChooseOneList();
+		
+	}
+	break;
+	
 	case WM_CREATE:
 	{
 		logger=Logger(hWnd, 300, 300);

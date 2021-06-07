@@ -368,7 +368,11 @@ void ViewHandler::changeCurrentView(int newView,const char* param1,const char* p
 	break;
 	case CONNECT_FAILURE_VIEW:
 	{
-
+		showNickname = false;
+		pcSelector = false;
+		DrawPCPortImages = false;
+		changeColorToSmooth(1, 0, 1);
+		updateMessage(TEXT("Соединение разорвано"), 21);
 	}
 	break;
 	}
