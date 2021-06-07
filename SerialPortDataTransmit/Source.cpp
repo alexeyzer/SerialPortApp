@@ -731,6 +731,7 @@ DWORD WINAPI read(LPVOID t)
 								{
 									a1->writetofile();
 									a1->closefd();
+									messageboxidname(namebyid(bufferread[1]), lenbyid(bufferread[1]), "Пришел файл от пользователя");
 								}
 								buffer[0] = 5;
 								buffer[1] = bufferread[1];
